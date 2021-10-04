@@ -11,7 +11,7 @@
 #define FACTEUR_CORRECTION 0.0004       // Facteur de correction pour le PID
 #define CORRECTION_PAR_TOUR 4           // Nombre de fois que le PID ajuste les valeurs de vitesses par tour
  
-void avance_CM(int nbCM); 
+
 void avance_tour_roue(int nbTour); 
 
 /* 
@@ -63,43 +63,47 @@ void avance_tour_roue(int nbTour)
       _delay_us(100); 
     } 
 
+    // Ajuste la commande de vitesse du moteur gauche pour compenser les erreurs materielles
+    speedRatio = (nbPulseRight-nbPulseLeft)*FACTEUR_CORRECTION; 
+    
+    // Prints pour tester le PID
     Serial.print("\nPulse right : "); 
     Serial.println(nbPulseRight); 
     Serial.print("Pulse left : "); 
     Serial.println(nbPulseLeft); 
- 
-    speedRatio = (nbPulseRight-nbPulseLeft)*FACTEUR_CORRECTION; 
     Serial.print("Speed Ratio : ");
     Serial.println(speedRatio); 
   }
 
   for(int i = 2; i <= nbTour*CORRECTION_PAR_TOUR; i++) // Tours restants
   { 
+    // Change la vitesse de chaque moteurs à la valeur de base, applique le PID
     MOTOR_SetSpeed(LEFT, (BASE_SPEED+speedRatio)); 
     MOTOR_SetSpeed(RIGHT, BASE_SPEED);
 
+    // Laisse les moteurs tourner jusqu'a la valeur voulue avant de mettre a jour le PID
     while(nbPulseRight <= ENCODE_TOUR_ROUE/CORRECTION_PAR_TOUR*i) 
     { 
+      // Vérifie si la condition est remplie toutes les 100us
       nbPulseRight = ENCODER_Read(RIGHT); 
       nbPulseLeft = ENCODER_Read(LEFT); 
       _delay_us(100); 
     } 
     
+    // Ajuste la commande de vitesse du moteur gauche pour compenser les erreurs materielles
+    speedRatio = (nbPulseRight-nbPulseLeft)*FACTEUR_CORRECTION; 
+    
+    // Prints pour tester le PID
     Serial.print("\nPulse right : "); 
     Serial.println(nbPulseRight); 
     Serial.print("Pulse left : "); 
     Serial.println(nbPulseLeft); 
-    
-    speedRatio = (nbPulseRight-nbPulseLeft)*FACTEUR_CORRECTION; 
     Serial.print("Speed Ratio : ");
-    Serial.println(speedRatio);  
+    Serial.println(speedRatio); 
   } 
  
+  // Stop les moteurs
   MOTOR_SetSpeed(0,0); 
   MOTOR_SetSpeed(1,0); 
 } 
  
-void avance_CM(int nbCM) 
-{ 
-   
-} 
