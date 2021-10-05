@@ -7,7 +7,8 @@
  * PI rounded to 3
  * r = 1.5 inches rounded to 4cm
  */
-const int CIRCUMFERENCE = 2 * 3 * 4;
+const int WHEEL_CIRCUMFERENCE = 2 * 3 * 4;
+const float TURNING_ROBOT_CIRCUMFERENCE = 2 * 3.14f * 20;
 /** Speed for the left motor when going forward */
 const float LEFT_FORWARD_SPEED = 0.40f;
 /** Speed for the right motor when going forward */
@@ -18,17 +19,27 @@ const float KP = 0.0001f;
 const int PULSES_BY_TURN = 3200;
 
 void forward(long distance);
+void turn(int angle, int turning_side);
 
 void setup()
 {
     //Serial.begin(9600);
     BoardInit();
-    forward(300);
 }
 
 void loop()
 {
 
+}
+
+void end_action()
+{
+    // Reset the encoders for the next action.
+    ENCODER_Reset(LEFT);
+    ENCODER_Reset(RIGHT);
+
+    MOTOR_SetSpeed(LEFT, 0.0f);
+    MOTOR_SetSpeed(RIGHT, 0.0f);
 }
 
 /**
@@ -38,12 +49,19 @@ void loop()
  */
 void forward(long distance)
 {
+    // Having a distance of 0 or less means that the robot does not move since he can't move back.
+    if (distance <= 0)
+    {
+        return;
+    }
+
     // Reset the encoders just in case there were not already reset.
     ENCODER_Reset(LEFT);
     ENCODER_Reset(RIGHT);
 
     // Number of turns the wheels must do to cover the distance.
-    float nb_wheel_turns = 1.0f * distance / CIRCUMFERENCE;
+    float nb_wheel_turns = 1.0f * distance / WHEEL_CIRCUMFERENCE;
+
     // Number of pulses that the motors will have to do.
     long nb_pulses_distance = nb_wheel_turns * PULSES_BY_TURN;
 
@@ -84,10 +102,39 @@ void forward(long distance)
         // ===============
     }
 
-    // Reset the encoders for the next actions.
-    ENCODER_Reset(LEFT);
-    ENCODER_Reset(RIGHT);
+    end_action();
+}
 
-    MOTOR_SetSpeed(LEFT, 0.0f);
-    MOTOR_SetSpeed(RIGHT, 0.0f);
+/**
+ * Function that makes the robot turn of a specified angle.
+ * 
+ * @param[in] angle Angle in degrees that the robot must turn. Turn clockwise if bigger than 0.
+ */
+void turn(int angle, int turning_side)
+{
+    // Simple validation, angle must be between 1 and 180 degrees and the int for the turning 
+    // side must be 0 (left) or 1 (right).
+    if (angle < 1 || angle > 180 || (turning_side != LEFT && turning_side != RIGHT))
+    {
+        return;
+    }
+
+    // The distance that the wheel must cover to turn to the specified degree.
+    // Formula for the measurement of a circular arc : (center_angle * circle_circumference) / 360
+    float circular_arc_distance = (angle * TURNING_ROBOT_CIRCUMFERENCE) / 360;
+    // Number of turns the wheels must do to cover the distance.
+    float nb_wheel_turn = circular_arc_distance / WHEEL_CIRCUMFERENCE;
+    // Number of pulses that the motors will have to do.
+    long nb_pulses = nb_wheel_turn * PULSES_BY_TURN;
+
+    int turning_motor = (turning_side == LEFT) ? RIGHT : LEFT;
+
+    MOTOR_SetSpeed(turning_motor, 0.4f);
+
+    while(ENCODER_Read(turning_motor) < nb_pulses)
+    {
+        delay(20);
+    }
+
+    end_action();
 }
