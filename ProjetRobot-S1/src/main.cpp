@@ -8,6 +8,7 @@
  * r = 1.5 inches rounded to 4cm
  */
 const int WHEEL_CIRCUMFERENCE = 2 * 3 * 4;
+/** The circumference of the circle that the robot draws when  */
 const float TURNING_ROBOT_CIRCUMFERENCE = 2 * 3.14f * 20;
 /** Speed for the left motor when going forward */
 const float LEFT_FORWARD_SPEED = 0.40f;
@@ -25,6 +26,13 @@ void setup()
 {
     //Serial.begin(9600);
     BoardInit();
+
+    MOTOR_SetSpeed(LEFT, 0.0f);
+    MOTOR_SetSpeed(RIGHT, 0.0f);
+
+    forward(210);
+    turn(90, LEFT);
+    forward(50);
 }
 
 void loop()
@@ -40,13 +48,11 @@ void end_action()
 
     MOTOR_SetSpeed(LEFT, 0.0f);
     MOTOR_SetSpeed(RIGHT, 0.0f);
+
+    delay(10);
 }
 
-/**
- * Function that makes the robot go forward on a specified distance.
- * 
- * @param[in] distance The distance that the robot moves in cm.
- */
+
 void forward(long distance)
 {
     // Having a distance of 0 or less means that the robot does not move since he can't move back.
@@ -73,8 +79,15 @@ void forward(long distance)
     float left_speed = LEFT_FORWARD_SPEED;
     float right_speed = RIGHT_FORWARD_SPEED;
 
-    MOTOR_SetSpeed(LEFT, left_speed);
-    MOTOR_SetSpeed(RIGHT, right_speed);
+    MOTOR_SetSpeed(LEFT, 0.25f);
+    MOTOR_SetSpeed(RIGHT, 0.25f);
+
+    if (distance >= 40)
+    {
+        delay(800);
+        MOTOR_SetSpeed(LEFT, left_speed);
+        MOTOR_SetSpeed(RIGHT, right_speed);
+    }
 
     // Will make the robot go forward until the motors exceed the needed number of pulses
     while (total_pulses_left < nb_pulses_distance && total_pulses_right < nb_pulses_distance)
@@ -127,9 +140,10 @@ void turn(int angle, int turning_side)
     // Number of pulses that the motors will have to do.
     long nb_pulses = nb_wheel_turn * PULSES_BY_TURN;
 
+    // If the robot turns left, it means that it's the right wheel that must works.
     int turning_motor = (turning_side == LEFT) ? RIGHT : LEFT;
 
-    MOTOR_SetSpeed(turning_motor, 0.4f);
+    MOTOR_SetSpeed(turning_motor, 0.2f);
 
     while(ENCODER_Read(turning_motor) < nb_pulses)
     {
