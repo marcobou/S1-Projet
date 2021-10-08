@@ -9,7 +9,7 @@
  */
 const int WHEEL_CIRCUMFERENCE = 2 * 3 * 4;
 /** The circumference of the circle that the robot draws when  */
-const float TURNING_ROBOT_CIRCUMFERENCE = 2 * 3.14f * 20;
+const float TURNING_ROBOT_CIRCUMFERENCE = 2 * 3.14f * 19;
 /** Speed for the left motor when going forward */
 const float LEFT_FORWARD_SPEED = 0.40f;
 /** Speed for the right motor when going forward */
@@ -32,7 +32,12 @@ void setup()
 
     forward(210);
     turn(90, LEFT);
-    forward(50);
+    forward(40);
+    turn(90, RIGHT);
+    forward(35);
+    turn(90, RIGHT);
+    forward(20);
+    turn(45, LEFT);
 }
 
 void loop()
@@ -49,7 +54,7 @@ void end_action()
     MOTOR_SetSpeed(LEFT, 0.0f);
     MOTOR_SetSpeed(RIGHT, 0.0f);
 
-    delay(10);
+    delay(200);
 }
 
 
@@ -76,23 +81,29 @@ void forward(long distance)
     long total_pulses_left = 0;
     long total_pulses_right = 0;
 
-    float left_speed = LEFT_FORWARD_SPEED;
-    float right_speed = RIGHT_FORWARD_SPEED;
+    float left_speed = 0.25f;
+    float right_speed = 0.25f;
 
-    MOTOR_SetSpeed(LEFT, 0.25f);
-    MOTOR_SetSpeed(RIGHT, 0.25f);
+    float left_speed_modifier = 0.0f;
 
-    if (distance >= 40)
-    {
-        delay(800);
-        MOTOR_SetSpeed(LEFT, left_speed);
-        MOTOR_SetSpeed(RIGHT, right_speed);
-    }
+    MOTOR_SetSpeed(LEFT, left_speed);
+    MOTOR_SetSpeed(RIGHT, right_speed);
+
+    bool go_slow = true;
 
     // Will make the robot go forward until the motors exceed the needed number of pulses
     while (total_pulses_left < nb_pulses_distance && total_pulses_right < nb_pulses_distance)
     {
         delay(100);
+
+        if (go_slow && 1.0f * total_pulses_left / PULSES_BY_TURN >= 1.0f)
+        {
+            go_slow = false;
+            left_speed = LEFT_FORWARD_SPEED - left_speed_modifier;
+            right_speed = RIGHT_FORWARD_SPEED;
+            MOTOR_SetSpeed(LEFT, left_speed);
+            MOTOR_SetSpeed(RIGHT, right_speed);
+        }
 
         // Reset the encoders after the reading because we want the number of pulses between each readings,
         // not the number of pulses since the beginning.
@@ -108,7 +119,11 @@ void forward(long distance)
         if (pulses_left != pulses_right)
         {
             int speed_error = pulses_left - pulses_right;
-            left_speed = left_speed - (speed_error * KP);
+            float added_left_speed = (speed_error * KP);
+
+            left_speed_modifier += added_left_speed;
+
+            left_speed = left_speed - added_left_speed;
             MOTOR_SetSpeed(LEFT, left_speed);
         }
 
@@ -143,7 +158,7 @@ void turn(int angle, int turning_side)
     // If the robot turns left, it means that it's the right wheel that must works.
     int turning_motor = (turning_side == LEFT) ? RIGHT : LEFT;
 
-    MOTOR_SetSpeed(turning_motor, 0.2f);
+    MOTOR_SetSpeed(turning_motor, 0.3f);
 
     while(ENCODER_Read(turning_motor) < nb_pulses)
     {
