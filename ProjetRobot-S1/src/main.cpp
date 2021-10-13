@@ -30,11 +30,18 @@ void setup() {
   BoardInit(); 
   MOTOR_SetSpeed(LEFT,0); 
   MOTOR_SetSpeed(RIGHT,0); 
+  pinMode(28, INPUT);
   Serial.println("Start"); 
 } 
 
 void loop() 
 {
+  bool sw = 0;
+  while(sw == 0)
+  {
+    sw = digitalRead(28);
+    delay(1);
+  }
   avance (220);
   turn(-90.0);
   avance (20);
@@ -190,10 +197,19 @@ void avance_tour_roue(float nbTour)
             }
         }
 
-        MOTOR_SetSpeed(LEFT, current_speed + speedRatio); 
-        MOTOR_SetSpeed(RIGHT, current_speed);
-
-        speedRatio = (pulses_right-pulses_left)*FACTEUR_CORRECTION;
+        if(TAILLE_ROUE_CM == TAILLE_ROUE_ROBOTA)
+        {
+          speedRatio = (pulses_right-pulses_left)*FACTEUR_CORRECTION;
+          MOTOR_SetSpeed(LEFT, current_speed + speedRatio); 
+          MOTOR_SetSpeed(RIGHT, current_speed);
+        }
+        else
+        {
+          speedRatio = (pulses_left-pulses_right)*FACTEUR_CORRECTION;
+          MOTOR_SetSpeed(LEFT, current_speed); 
+          MOTOR_SetSpeed(RIGHT, current_speed + speedRatio);
+        }
+        
 
         _delay_us(100);
     }
