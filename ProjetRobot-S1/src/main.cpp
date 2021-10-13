@@ -15,7 +15,7 @@
 #define FACTEUR_CORRECTION 0.0004       // Facteur de correction pour le PID
 #define CORRECTION_PAR_TOUR 8           // Nombre de fois que le PID ajuste les valeurs de vitesses par tour
  
-const float TAILLE_ROUE_CM = TAILLE_ROUE_ROBOTA * 3.141592;
+const float TAILLE_ROUE_CM = TAILLE_ROUE_ROBOTB * 3.141592;
 
 void avance_tour_roue(float nbTour); 
 void avance (float x);
@@ -45,7 +45,7 @@ void loop()
   turn(-90);
   avance(10);
   turn(45);
-  avance(34);
+  avance(41);
   turn(-90);
   avance(55);
   turn(45);
@@ -63,7 +63,7 @@ void loop()
   turn(-45);
   avance(55);
   turn(90);
-  avance(34);
+  avance(41);
   turn(-45);
   avance(10);
   turn(90);
@@ -90,8 +90,8 @@ void avance (float x){
 void turn (float angle){
   
   long nbPulseRight = 0;
-  ENCODER_Reset(RIGHT); // Variables contenant les dernières valeures d'encodeurs
   long nbPulseLeft = 0;
+  ENCODER_Reset(RIGHT); // Variables contenant les dernières valeures d'encodeurs
   ENCODER_Reset(LEFT); 
   float convert = abs(angle/360*PULSE_PAR_ROND);
   Serial.println(convert);
