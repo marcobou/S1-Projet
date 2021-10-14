@@ -15,7 +15,7 @@
 #define FACTEUR_CORRECTION 0.0004       // Facteur de correction pour le PID
 #define CORRECTION_PAR_TOUR 8           // Nombre de fois que le PID ajuste les valeurs de vitesses par tour
  
-const float TAILLE_ROUE_CM = TAILLE_ROUE_ROBOTB * 3.141592;
+const float TAILLE_ROUE_CM = TAILLE_ROUE_ROBOTA * 3.141592;
 
 void avance_tour_roue(float nbTour); 
 void avance (float x);
@@ -42,45 +42,22 @@ void loop()
     sw = digitalRead(28);
     delay(1);
   }
-  avance (220);
-  turn(-90.0);
-  avance (20);
-  turn(90);
-  avance(20);
-  turn(90);
-  avance(20);
-  turn(-90);
-  avance(10);
-  turn(45);
-  avance(41);
-  turn(-90);
-  avance(55);
-  turn(45);
-  avance(27);
-  turn(20);
-  avance(100);
-  turn(-20);
-
+  avance(120);
+  turn(-45);
+  avance(65);
+  turn(44);
+  avance(330);
   turn(180);
+  avance(125);
+  turn(-45);
+  avance(65);
+  turn(45);
+  avance(330);
 
-  turn(20);
-  avance(100);
-  turn(-20);
-  avance(27);
-  turn(-45);
-  avance(55);
-  turn(90);
-  avance(41);
-  turn(-45);
-  avance(10);
-  turn(90);
-  avance(20);
-  turn(-90);
-  avance(20);
-  turn(-90);
-  avance (20);
-  turn(90.0);
-  avance (220);
+  /*turn(180);
+  turn(180);
+  turn(180);*/
+  
 
   MOTOR_SetSpeed(LEFT, 0);
   MOTOR_SetSpeed(RIGHT, 0);
@@ -172,9 +149,9 @@ void avance_tour_roue(float nbTour)
     MOTOR_SetSpeed(RIGHT, BASE_SPEED);
 
     float added_speed = 0.0001f;
-    float reduce_speed = added_speed * 1.1f;
+    float reduce_speed = added_speed * 1.0f;
     float current_speed = BASE_SPEED;
-    float max_speed = 1.0f;
+    float max_speed = 0.9f;
     float min_speed = 0.2f;
 
     while(pulses_left < pulse_to_do)
