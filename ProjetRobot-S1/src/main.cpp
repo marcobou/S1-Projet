@@ -2,208 +2,196 @@
 #include <LibRobus.h>
 #include <math.h>
 
-#define ENCODER_WHEEL_TURN 3200     // Nombre de ticks d'encodeur pour faire un tour
-#define PULSE_PER_360 7979*2     // Nombre de ticks d'encodeur pour faire tourner le robot de 360o
-#define SIZE_WHEEL_IN 9.42477796 // Taille des roues en pouces
-#define SIZE_WHEEL_CM 23.938936  // Taille des roues en cm
+#define ENCODE_TOUR_ROUE 3200     // Nombre de ticks d'encodeur pour faire un tour
+#define PULSE_PAR_ROND 7979*2
+#define TAILLE_ROUE_PO 9.42477796 // Taille des roues en pouces
+#define TAILLE_ROUE_ROBOTA 7.63
+#define TAILLE_ROUE_ROBOTB 7.55
  
-#define BASE_SPEED 0.3                  // Vitesse de base
-#define MINUS_BASE_SPEED -0.3           // Vitesse de base negative
+#define BASE_SPEED 0.2 
+#define BASE_TURN_SPEED 0.3                 // Vitesse de base
+#define MINUS_BASE_SPEED -0.4           // Vitesse de base negative
 #define QUARTER_BASE_SPEED BASE_SPEED/4 // 1/4 de la vitesse de base pour départs et arrets plus doux
-#define CORRECTION_FACTOR 0.0004       // Facteur de correction pour le PID
-#define CORRECTION_PER_TURN 4           // Nombre de fois que le PID ajuste les valeurs de vitesses par tour
+#define FACTEUR_CORRECTION 0.0004       // Facteur de correction pour le PID
+#define CORRECTION_PAR_TOUR 8           // Nombre de fois que le PID ajuste les valeurs de vitesses par tour
+ 
+const float TAILLE_ROUE_CM = TAILLE_ROUE_ROBOTA * 3.141592;
 
-
-const int steps_forward[] = {220, -90, 20, 90, 20, 90, 20, };
-
-
-void forward_nb_turns(float nbTurns); 
-void forward_cm (float nbCM);
+void avance_tour_roue(float nbTour); 
+void avance (float x);
 void turn (float angle);
 
 /* 
 Fonction de setup pour initialiser le robot
 */
-void setup() 
-{ 
+void setup() { 
+  // put your setup code here, to run once: 
   Serial.begin(9600); 
   BoardInit(); 
   MOTOR_SetSpeed(LEFT,0); 
   MOTOR_SetSpeed(RIGHT,0); 
+  pinMode(28, INPUT);
   Serial.println("Start"); 
 } 
 
 void loop() 
 {
-  forward_cm (220);
-  turn(-90.0);
-  forward_cm (20);
-  turn(90);
-  forward_cm(20);
-  turn(90);
-  forward_cm(20);
-  turn(-90);
-  forward_cm(10);
-  turn(45);
-  forward_cm(34);
-  turn(-90);
-  forward_cm(50);
-  turn(45);
-  forward_cm(27);
-  turn(30);
-  forward_cm(77.5);
-  turn(-30);
+  bool sw = 0;
+  while(sw == 0)
+  {
+    sw = digitalRead(28);
+    delay(1);
+  }
+  avance(115);
+  turn(-45);
+  avance(65);
+  turn(44);
+  avance(335);
+  turn(180);
+  avance(125);
+  turn(-47);
+  avance(65);
+  turn(47);
+  avance(340);
 
   turn(180);
-
-  turn(30);
-  forward_cm(77.5);
-  turn(-30);
-  forward_cm(27);
-  turn(-45);
-  forward_cm(50);
-  turn(90);
-  forward_cm(34);
-  turn(-45);
-  forward_cm(10);
-  turn(90);
-  forward_cm(20);
-  turn(-90);
-  forward_cm(20);
-  turn(-90);
-  forward_cm (20);
-  turn(90);
-  forward_cm (220);
+  turn(180);
+  turn(180);
+  
 
   MOTOR_SetSpeed(LEFT, 0);
   MOTOR_SetSpeed(RIGHT, 0);
 
   while(1);
+
 }
 
-void forward_cm (float nbCM)
-{
-  nbCM = (1.0*nbCM/SIZE_WHEEL_CM);
-  forward_nb_turns(nbCM);
+void avance (float x){
+  x = (1.0*x/TAILLE_ROUE_CM);
+  avance_tour_roue(x);
   
 }
-void turn (float angle)
-{
-  long nbPulseRight = 0;// Variables contenant les dernières valeures d'encodeurs
+void turn (float angle){
+  
+  long nbPulseRight = 0;
   long nbPulseLeft = 0;
+  ENCODER_Reset(RIGHT); // Variables contenant les dernières valeures d'encodeurs
   ENCODER_Reset(LEFT); 
-  ENCODER_Reset(RIGHT); 
-
-  float convert = abs(angle/360*PULSE_PER_360);
+  float convert = abs(angle/360*PULSE_PAR_ROND);
   Serial.println(convert);
   Serial.println(angle);
-
   //tourne a gauche
   if (angle<0)
   {
-    MOTOR_SetSpeed(RIGHT, BASE_SPEED);
-
+    MOTOR_SetSpeed(RIGHT, BASE_TURN_SPEED);
+    //MOTOR_SetSpeed(LEFT, MINUS_BASE_SPEED);
     while(convert>nbPulseRight)
     {
       _delay_us(10);
       nbPulseRight = ENCODER_Read(RIGHT);
-    }
+
+      }
     MOTOR_SetSpeed(RIGHT, 0);
+   // MOTOR_SetSpeed(LEFT, 0);
+
   }
    //tourne a droite
-  else if (angle>0 && angle!=180)
-  {
-    MOTOR_SetSpeed(LEFT, BASE_SPEED);
-    while(convert>nbPulseLeft)
-    {
+   else if (angle>0 && angle!=180){
+     MOTOR_SetSpeed(LEFT, BASE_TURN_SPEED);
+     while(convert>nbPulseLeft)
+     {
       _delay_us(10);
       nbPulseLeft = ENCODER_Read(LEFT);
-    }
+        }
       MOTOR_SetSpeed(LEFT, 0);
-  }
-  // 180 degrés
-  else if (angle == 180)
-  {
-    MOTOR_SetSpeed(LEFT, BASE_SPEED);
-    MOTOR_SetSpeed(RIGHT, MINUS_BASE_SPEED);
-
-    while((convert/2)>nbPulseLeft)
-    {
+   }
+   else if (angle == 180){
+     MOTOR_SetSpeed(LEFT, BASE_TURN_SPEED);
+     MOTOR_SetSpeed(RIGHT, -BASE_TURN_SPEED);
+     while(((convert-50)/2)>nbPulseLeft)
+     {
       _delay_us(10);
-      nbPulseLeft = ENCODER_Read(LEFT);    
-    }
-    MOTOR_SetSpeed(LEFT, 0);
-    MOTOR_SetSpeed(RIGHT, 0);
-  }
-  _delay_us(10);
-}
+      nbPulseLeft = ENCODER_Read(LEFT);
+        }
+      MOTOR_SetSpeed(LEFT, 0);
+      MOTOR_SetSpeed(RIGHT, 0);
+
+   }
+
+
+_delay_us(10);
+//delay(1000);
+ }
+
+
+
+
 
 /*
-Cette fonction prend en entrée un nombre et fait tourner les
-roues un nombre de tour égal a ce nombre
+Cette fonction prend en entrée un nombre entier et fait tourner les
+roues un nombre de tour égal a ce nombre entier
 */
-void forward_nb_turns(float nbTurns) 
+void avance_tour_roue(float nbTour) 
 { 
   long nbPulseRight = 0;
-  ENCODER_Reset(RIGHT); // Variables contenant les dernières valeures d'encodeurs
   long nbPulseLeft = 0;
+
+  ENCODER_Reset(RIGHT); // Variables contenant les dernières valeures d'encodeurs
   ENCODER_Reset(LEFT); 
  
   float speedRatio = 0; // Ratio utilisé pour ajuster le rapport de vitesse entre les deux roues
- 
-  for(int i = 1; i <= 4; i++) // Utilise le 1er tour pour accélérer
-  {
-    // Change la vitesse de chaque moteurs à la valeur de base, applique le PID
-    MOTOR_SetSpeed(LEFT, ((QUARTER_BASE_SPEED*i)+speedRatio)); 
-    MOTOR_SetSpeed(RIGHT, (QUARTER_BASE_SPEED*i)); 
 
-    // Laisse les moteurs tourner jusqu'a la valeur voulue avant de mettre a jour le PID
-    while(nbPulseRight <= ENCODER_WHEEL_TURN/CORRECTION_PER_TURN*i) 
-    { 
-      // Vérifie si la condition est remplie toutes les 100us
-      nbPulseRight = ENCODER_Read(RIGHT); 
-      nbPulseLeft = ENCODER_Read(LEFT); 
-      _delay_us(100); 
-    } 
+    long pulse_to_do = nbTour * 3200;
+    long pulses_left = 0;
+    long pulses_right;
 
-    // Ajuste la commande de vitesse du moteur gauche pour compenser les erreurs materielles
-    speedRatio = (nbPulseRight-nbPulseLeft)*CORRECTION_FACTOR; 
-    
-    // Prints pour tester le PID
-    Serial.print("\nPulse right : "); 
-    Serial.println(nbPulseRight); 
-    Serial.print("Pulse left : "); 
-    Serial.println(nbPulseLeft); 
-    Serial.print("Speed Ratio : ");
-    Serial.println(speedRatio); 
-  }
-
-  for(int i = 2; i <= nbTurns*CORRECTION_PER_TURN; i++) // Tours restants
-  { 
-    // Change la vitesse de chaque moteurs à la valeur de base, applique le PID
-    MOTOR_SetSpeed(LEFT, (BASE_SPEED+speedRatio)); 
+    MOTOR_SetSpeed(LEFT, (BASE_SPEED)); 
     MOTOR_SetSpeed(RIGHT, BASE_SPEED);
 
-    // Laisse les moteurs tourner jusqu'a la valeur voulue avant de mettre a jour le PID
-    while(nbPulseRight <= ENCODER_WHEEL_TURN/CORRECTION_PER_TURN*i) 
-    { 
-      // Vérifie si la condition est remplie toutes les 100us
-      nbPulseRight = ENCODER_Read(RIGHT); 
-      nbPulseLeft = ENCODER_Read(LEFT); 
-      _delay_us(100); 
-    } 
-    
-    // Ajuste la commande de vitesse du moteur gauche pour compenser les erreurs materielles
-    speedRatio = (nbPulseRight-nbPulseLeft)*CORRECTION_FACTOR; 
-    
-    // Prints pour tester le PID
-    Serial.print("\nPulse right : "); 
-    Serial.println(nbPulseRight); 
-    Serial.print("Pulse left : "); 
-    Serial.println(nbPulseLeft); 
-    Serial.print("Speed Ratio : ");
-    Serial.println(speedRatio); 
-  } 
+    float added_speed = 0.0001f;
+    float reduce_speed = added_speed * 1.0f;
+    float current_speed = BASE_SPEED;
+    float max_speed = 0.9f;
+    float min_speed = 0.2f;
+
+    while(pulses_left < pulse_to_do)
+    {
+        pulses_left = ENCODER_Read(LEFT);
+        pulses_right = ENCODER_Read(RIGHT);
+
+        if (pulses_left * 1.0f / pulse_to_do < 0.5f)
+        {
+            if (current_speed < max_speed)
+            {
+                current_speed += added_speed;
+            }
+        }
+        else
+        {
+            if (current_speed > min_speed)
+            {
+                current_speed -= reduce_speed;
+            }
+        }
+
+        if(TAILLE_ROUE_CM == TAILLE_ROUE_ROBOTA)
+        {
+          speedRatio = (pulses_right-pulses_left)*FACTEUR_CORRECTION;
+          MOTOR_SetSpeed(LEFT, current_speed + speedRatio); 
+          MOTOR_SetSpeed(RIGHT, current_speed);
+        }
+        else
+        {
+          speedRatio = (pulses_left-pulses_right)*FACTEUR_CORRECTION;
+          MOTOR_SetSpeed(LEFT, current_speed); 
+          MOTOR_SetSpeed(RIGHT, current_speed + speedRatio);
+        }
+        
+
+        _delay_us(100);
+    }
+
+  
  
   // Stop les moteurs
   MOTOR_SetSpeed(0,0); 
@@ -211,5 +199,4 @@ void forward_nb_turns(float nbTurns)
   nbPulseLeft = ENCODER_ReadReset(LEFT);
   nbPulseRight = ENCODER_ReadReset(RIGHT);
   _delay_us(10);
-  delay(1000);
 }
