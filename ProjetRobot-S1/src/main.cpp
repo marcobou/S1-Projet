@@ -108,7 +108,7 @@ void turn (float angle){
    else if (angle == 180){
      MOTOR_SetSpeed(LEFT, BASE_TURN_SPEED);
      MOTOR_SetSpeed(RIGHT, -BASE_TURN_SPEED);
-     while(((convert-50)/2)>nbPulseLeft)
+     while(((convert-200)/2)>nbPulseLeft)
      {
       _delay_us(10);
       nbPulseLeft = ENCODER_Read(LEFT);
