@@ -42,21 +42,21 @@ void loop()
     sw = digitalRead(28);
     delay(1);
   }
-  avance(120);
+  avance(115);
   turn(-45);
   avance(65);
   turn(44);
-  avance(330);
+  avance(335);
   turn(180);
   avance(125);
-  turn(-45);
+  turn(-47);
   avance(65);
-  turn(45);
-  avance(330);
+  turn(47);
+  avance(340);
 
-  /*turn(180);
   turn(180);
-  turn(180);*/
+  turn(180);
+  turn(180);
   
 
   MOTOR_SetSpeed(LEFT, 0);
@@ -108,7 +108,7 @@ void turn (float angle){
    else if (angle == 180){
      MOTOR_SetSpeed(LEFT, BASE_TURN_SPEED);
      MOTOR_SetSpeed(RIGHT, -BASE_TURN_SPEED);
-     while((convert/2)>nbPulseLeft)
+     while(((convert-50)/2)>nbPulseLeft)
      {
       _delay_us(10);
       nbPulseLeft = ENCODER_Read(LEFT);
