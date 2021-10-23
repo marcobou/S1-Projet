@@ -75,7 +75,7 @@ void turn (float angle){
 
     if (angle != 180)
     {
-        // angle < 0 = tourner à gauche, angle > 0 = tourner à droite
+        // angle < 0 = turn left, angle > 0 = turn right
         int turn_motor = angle < 0 ? RIGHT : LEFT;
 
         MOTOR_SetSpeed(turn_motor, BASE_TURN_SPEED);
@@ -90,7 +90,7 @@ void turn (float angle){
     }
     else
     {
-        // tourne de 180
+        // make a 180
 
         MOTOR_SetSpeed(LEFT, BASE_TURN_SPEED);
         MOTOR_SetSpeed(RIGHT, -BASE_TURN_SPEED);
@@ -111,7 +111,7 @@ void turn (float angle){
 /**
  * Function that makes the robot go forward.
  * 
- * @param[in] distance The distance for which the robot must go forward.
+ * @param[in] distance The distance in cm for which the robot must go forward.
  */
 void forward(float distance) 
 { 
