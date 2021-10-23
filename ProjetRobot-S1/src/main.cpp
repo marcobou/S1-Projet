@@ -17,6 +17,9 @@
 #define YELLOW_DEL_PIN 47
 #define GREEN_DEL_PIN 49
 
+#define SONAR_ID 0
+#define MARGIN_ERROR_DISTANCE 0.05
+
 const float WHEEL_SIZE_CM = WHEEL_SIZE_ROBOTA * 3.141592;
 
 void forward (float distance);
@@ -25,6 +28,7 @@ void pin_setup();
 void turn_on_del(int del_pin);
 void turn_off_del(int del_pin);
 void turn_off_del_all();
+float detect_object(float max_distance);
 
 void setup()
 { 
@@ -49,6 +53,8 @@ void loop()
         sw = digitalRead(28);
         delay(1);
     }
+    
+    Serial.println(detect_object(100));
 
     MOTOR_SetSpeed(LEFT, 0);
     MOTOR_SetSpeed(RIGHT, 0);
@@ -105,6 +111,8 @@ void turn (float angle){
         MOTOR_SetSpeed(RIGHT, 0);
     }
 
+    ENCODER_Reset(LEFT);
+    ENCODER_Reset(RIGHT);
     _delay_us(10);
  }
 
@@ -223,4 +231,104 @@ void turn_off_del_all()
     digitalWrite(BLUE_DEL_PIN, LOW);
     digitalWrite(YELLOW_DEL_PIN, LOW);
     digitalWrite(GREEN_DEL_PIN, LOW);
+}
+
+/**
+ * Get the average of an array of float.
+ * 
+ * @param[in] arr The array to get the average from
+ * @param[in] size The size of the array
+ * @param[out] average The average
+ */
+float get_average(float arr[], int size)
+{
+    float sum = 0;
+    // Will keep track of how many non-zero values there are in the array
+    int non_zero_values = 0;
+
+    for (int i = 0; i < size; i++)
+    {
+        float val = arr[i];
+
+        if (val != 0)
+        {
+            non_zero_values++;
+        }
+
+        sum += val;
+    }
+
+    // If there is 0 non-zero values, that means that the array is filled with 0. To dodge a
+    // divided by 0 exception, we simply return 0.
+    if (non_zero_values == 0)
+    {
+        return 0;
+    }
+
+    // We want to divide by the numder of non-zero values to get a more meaningful average.
+    return sum / non_zero_values;
+}
+
+/**
+ * Function to detect an object and get how far away it is.
+ * 
+ * @param[in] max_distance The maximum distance, in cm, at which we expect to find the object. 0 if no expected distance.
+ * @param[out] obj_distance The distance between the robot and the object, in cm.
+ */
+float detect_object(float max_distance)
+{
+    int nb_detection = 0;
+    int last_distances_size = 20;
+    float last_distances [last_distances_size] = {};
+
+    while(1)
+    {
+        float obj_distance = SONAR_GetRange(SONAR_ID);
+        float last_distances_average = get_average(last_distances, last_distances_size);
+
+        if (obj_distance <= max_distance)
+        {
+            float max_distance_range = last_distances_average * (1.0 + MARGIN_ERROR_DISTANCE);
+            float min_distance_range = last_distances_average * (1.0 - MARGIN_ERROR_DISTANCE);
+
+            if (nb_detection < last_distances_size || obj_distance <= max_distance_range  || obj_distance >= min_distance_range)
+            {
+                
+                last_distances[nb_detection] = obj_distance;
+                nb_detection++;
+            }
+            else
+            {
+                if (nb_detection >= 5 && nb_detection <= last_distances_size)
+                {
+                    return last_distances_average;
+                }
+
+                nb_detection = 0;
+
+                // "Clear" the array by replacing all of its value by 0.
+                for (int i = 0; i < last_distances_size; i++)
+                {
+                    last_distances[i] = 0;
+                }
+            }
+        }
+        else
+        {
+            if (nb_detection >= 5 && nb_detection <= last_distances_size)
+            {
+                return last_distances_average;
+            }
+
+            nb_detection = 0;
+
+            // "Clear" the array by replacing all of its value by 0.
+            for (int i = 0; i < last_distances_size; i++)
+            {
+                last_distances[i] = 0;
+            }
+        }
+
+        delay(100);
+    }
 }
