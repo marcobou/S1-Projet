@@ -1,14 +1,11 @@
 #include <Arduino.h>
+#include <math.h>
 #include <Wire.h>
-#include "Adafruit_TCS34725.h" 
+#include "Adafruit_TCS34725.h"
 #include "defines.h"
 
 using namespace defines;
 
-// objet utilisé pour lire les valeurs du capteur de couleur
-Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);
-
-// Classe qui permet de créer un objet de couleur avec ses 3 composantes (R, G, B)
 class CustomColor
 {
     private:
@@ -28,57 +25,15 @@ class CustomColor
         }
 };
 
-// prototypes de fonctions
 CustomColor readColorOnce();
 int findColor(CustomColor);
-void printRGBValues(CustomColor color);
 
-// setup
-void setup() 
-{
-    Serial.begin(9600);
-    Serial.println("Color test begins :");
-
-    // alimente le capteur de couleur sur la pin D13
-    pinMode(13, OUTPUT);
-    digitalWrite(13, 1);
-
-    // essai de créer une connexion avec le capteur jusqu'a réussite
-    while (!tcs.begin())
-    {
-        Serial.println("No TCS34725 found ... check your connections");
-        // retire et redonne du courant au capteur à chaque échec de connexion
-        digitalWrite(13, 0);
-        delay(1000);
-        digitalWrite(13, 1);
-    } 
-
-    Serial.println("Found sensor");
+void setup() {
+  // put your setup code here, to run once:
 }
 
-// main
-void loop() 
-{
-    // objet de couleur
-    CustomColor currentColor = CustomColor(0,0,0);
-
-    // compteur pour s'assurer que le programme run encore
-    int countNotDead=0;
-
-    while(1)
-    {
-        currentColor = readColorOnce();
-
-        printRGBValues(currentColor);
-        
-        findColor(currentColor);
-
-        countNotDead++;
-        Serial.println(countNotDead);
-        Serial.println();
-
-        delay(1000);
-    }
+void loop() {
+  // put your main code here, to run repeatedly:
 }
 
 /*
@@ -122,6 +77,7 @@ La fonction retourne la couleur trouvée selon un index défini
 int findColor(CustomColor color)
 {
     int colorMatch = UNKNOWN;
+    
     // color is red
     if((color.Red >= RED_MIN_RED && color.Red <= RED_MAX_RED) &&
     (color.Green >= RED_MIN_GREEN && color.Green <= RED_MAX_GREEN) &&
@@ -162,16 +118,3 @@ int findColor(CustomColor color)
     Serial.println();
     return colorMatch;
 }   
-
-/*
-Cette fonction print sur le port série les composantes de l'objet couleur
-donné en entrée.
- */
-void printRGBValues(CustomColor color)
-{
-    Serial.println("Current color :");
-    Serial.print("Red : "); Serial.println(color.Red);
-    Serial.print("Green : "); Serial.println(color.Green);
-    Serial.print("Blue : ");  Serial.println(color.Blue);
-    Serial.println();
-}
