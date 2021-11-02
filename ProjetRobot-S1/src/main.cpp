@@ -2,20 +2,34 @@
 #include <LibRobus.h>
 #include <math.h>
 
+// === MOTORS ===
 #define PULSES_BY_TURN 3200             // Number of ticks/pulses that the encoders read each time the wheels finish a turn
 #define PULSES_BY_CIRCLE 7979 * 2
 #define WHEEL_SIZE_ROBOTA 7.63
 #define WHEEL_SIZE_ROBOTB 7.55
- 
+
+// === FORWARD ===
 #define BASE_SPEED 0.2                  // Base speed of the robot when going forward
-#define BASE_TURN_SPEED 0.3             // Base speed of the robot when turning
+#define MIN_SPEED 0.2
+#define MAX_SPEED 0.9
 #define CORRECTION_FACTOR 0.0004        // Correction factor for the PID
 
+// === TURN ===
+#define BASE_TURN_SPEED 0.3             // Base speed of the robot when turning
+
+// === DEL ===
 // PIN numbers for the DEL, 50-51-52 are already taken by ROBUS
 #define RED_DEL_PIN 53
 #define BLUE_DEL_PIN 48
 #define YELLOW_DEL_PIN 47
 #define GREEN_DEL_PIN 49
+
+// === OBJECT DETECTION ===
+#define SONAR_ID 0
+#define MARGIN_ERROR_DISTANCE 0.05
+#define MIN_DETECTION 4                 // Mininum number of detection that it takes for the robot to decide that he detected the object.
+#define MAX_DETECTION 12                // Maximum number of detection that it takes for the robot to decide that he did NOT detect the object.
+#define DETECTION_TURN_SPEED 0.1
 
 const float WHEEL_SIZE_CM = WHEEL_SIZE_ROBOTA * 3.141592;
 
@@ -25,6 +39,8 @@ void pin_setup();
 void turn_on_del(int del_pin);
 void turn_off_del(int del_pin);
 void turn_off_del_all();
+float detect_object(float max_distance);
+void stop_action();
 
 void setup()
 { 
@@ -50,10 +66,7 @@ void loop()
         delay(1);
     }
 
-    MOTOR_SetSpeed(LEFT, 0);
-    MOTOR_SetSpeed(RIGHT, 0);
-
-    while(1);
+    forward(detect_object(98.0));
 }
 
 /**
@@ -64,18 +77,14 @@ void loop()
 void turn (float angle){
     long nbPulses = 0;
 
-    // Variables contenant les dernières valeurs d'encodeurs
     ENCODER_Reset(RIGHT);
     ENCODER_Reset(LEFT); 
 
     float convert = abs(angle /360 * PULSES_BY_CIRCLE);
 
-    Serial.println(convert);
-    Serial.println(angle);
-
     if (angle != 180)
     {
-        // angle < 0 = tourner à gauche, angle > 0 = tourner à droite
+        // angle < 0 = turn left, angle > 0 = turn right
         int turn_motor = angle < 0 ? RIGHT : LEFT;
 
         MOTOR_SetSpeed(turn_motor, BASE_TURN_SPEED);
@@ -85,36 +94,36 @@ void turn (float angle){
             _delay_us(10);
             nbPulses = ENCODER_Read(turn_motor);
         }
-
-        MOTOR_SetSpeed(turn_motor, 0);
     }
     else
     {
-        // tourne de 180
+        // make a 180
 
         MOTOR_SetSpeed(LEFT, BASE_TURN_SPEED);
         MOTOR_SetSpeed(RIGHT, -BASE_TURN_SPEED);
 
-        while(((convert - 200) / 2) > nbPulses)
+        while(((convert - 100) / 2) > nbPulses)
         {
             _delay_us(10);
             nbPulses = ENCODER_Read(LEFT);
         }
-
-        MOTOR_SetSpeed(LEFT, 0);
-        MOTOR_SetSpeed(RIGHT, 0);
     }
 
-    _delay_us(10);
+    stop_action();
  }
 
 /**
  * Function that makes the robot go forward.
  * 
- * @param[in] distance The distance for which the robot must go forward.
+ * @param[in] distance The distance in cm for which the robot must go forward.
  */
 void forward(float distance) 
 { 
+    if (distance == 0)
+    {
+        return;
+    }
+
     float nb_wheel_turn = 1.0f * distance / WHEEL_SIZE_CM;
 
     ENCODER_Reset(RIGHT);
@@ -133,8 +142,6 @@ void forward(float distance)
     float added_speed = 0.0001f;
     float reduce_speed = added_speed * 1.0f;
     float current_speed = BASE_SPEED;
-    float max_speed = 0.9f;
-    float min_speed = 0.2f;
 
     while(pulses_left < pulse_to_do)
     {
@@ -143,14 +150,14 @@ void forward(float distance)
 
         if (pulses_left * 1.0f / pulse_to_do < 0.5f)
         {
-            if (current_speed < max_speed)
+            if (current_speed < MAX_SPEED)
             {
                 current_speed += added_speed;
             }
         }
         else
         {
-            if (current_speed > min_speed)
+            if (current_speed > MIN_SPEED)
             {
                 current_speed -= reduce_speed;
             }
@@ -172,12 +179,7 @@ void forward(float distance)
         _delay_us(100);
     }
  
-    // Stop the motors
-    MOTOR_SetSpeed(LEFT, 0); 
-    MOTOR_SetSpeed(RIGHT, 0); 
-    ENCODER_Reset(LEFT);
-    ENCODER_Reset(RIGHT);
-    _delay_us(10);
+    stop_action();
 }
 
 /**
@@ -223,4 +225,178 @@ void turn_off_del_all()
     digitalWrite(BLUE_DEL_PIN, LOW);
     digitalWrite(YELLOW_DEL_PIN, LOW);
     digitalWrite(GREEN_DEL_PIN, LOW);
+}
+
+/**
+ * Get the average of an array of float.
+ * 
+ * @param[in] arr The array to get the average from
+ * @param[in] size The size of the array
+ * @param[out] average The average
+ */
+float get_average(float arr[], int size)
+{
+    float sum = 0.0;
+    // Will keep track of how many non-zero values there are in the array
+    int non_zero_values = 0;
+
+    for (int i = 0; i < size; i++)
+    {
+        float val = arr[i];
+
+        if (val != 0)
+        {
+            non_zero_values++;
+            sum += val;
+        }
+    }
+
+    // If there is 0 non-zero values, that means that the array is filled with 0. To dodge a
+    // divided by 0 exception, we simply return 0.
+    if (non_zero_values == 0)
+    {
+        return 0;
+    }
+
+    // We want to divide by the numder of non-zero values to get a more meaningful average.
+    return sum / non_zero_values;
+}
+
+/**
+ * Function to detect an object and get how far away it is.
+ * 
+ * @param[in] max_distance The maximum distance, in cm, at which we expect to find the object. 0 if no expected distance.
+ * @param[out] obj_distance The distance between the robot and the object, in cm.
+ */
+float detect_object(float max_distance)
+{
+    int nb_detection = 0;
+    // Array containing the previous detected values that we want to consider.
+    float last_distances [MAX_DETECTION] = {};
+    long nbPulses = 0;
+    float detection_distance = 0.0f;
+
+    ENCODER_Reset(RIGHT);
+    ENCODER_Reset(LEFT); 
+
+    float convert = abs(180.0f / 360 * PULSES_BY_CIRCLE);
+
+    MOTOR_SetSpeed(LEFT, DETECTION_TURN_SPEED);
+    MOTOR_SetSpeed(RIGHT, -DETECTION_TURN_SPEED);
+
+    while (true)
+    {
+        // Delay of 100ms for the sonar, this is recommended by the doc.
+        delay(100);
+        nbPulses = ENCODER_Read(LEFT);
+
+        if (((convert - 100) / 2) < nbPulses)
+        {
+            // Turn until the robot does a 180, then stops. Will happen if the robot didn't detect any
+            // object, will then return 0 for the distance.
+
+            stop_action();
+            return 0.0f;
+        }
+
+        float obj_distance = SONAR_GetRange(SONAR_ID);
+        // The average of the previous detections.
+        float last_distances_average = get_average(last_distances, MAX_DETECTION);
+
+        if (obj_distance <= max_distance)
+        {
+            // If we are detecting something inside of the maximum distance range
+
+            // Calculate the range in which the object's distance must be. The range is the average of the
+            // previous distances with a margin of error.
+            float max_distance_range = last_distances_average * (1.0 + MARGIN_ERROR_DISTANCE);
+            float min_distance_range = last_distances_average * (1.0 - MARGIN_ERROR_DISTANCE);
+
+            if ((nb_detection < MAX_DETECTION && obj_distance <= max_distance_range && obj_distance >= min_distance_range) ||
+                (nb_detection < MAX_DETECTION && last_distances_average == 0.0))
+            {
+                /*
+                    First condition block: checks that the max detection number is not exceeded and that the distance
+                        between the object and the robot is between a certain range of the previous distances.
+                    
+                    OR
+
+                    Second condition block: checks that the max detection number is not exceeded and that the average
+                        of the previous distances is 0 (will happen if there is no distance in the array)
+                */
+
+                last_distances[nb_detection] = obj_distance;
+                nb_detection++;
+            }
+            else
+            {
+                /* Will enter here if the detected distance is not between the calculated range and that it wouldn't
+                be the first distance of the array. It will happen when we are detecting an object and we are suddenly
+                detecting another object closer or farther, but still in the maximum distance range, that the first detected
+                item.*/
+
+                // TODO put the if and the for loop into a function
+
+                if (nb_detection >= MIN_DETECTION && nb_detection <= MAX_DETECTION)
+                {
+                    /*If the first detected object was detected long enough, but not too long, we will return the distance
+                    from the robot to the object and apply a turn to the left to the robot to correct the fact that he
+                    overshot the object.*/
+
+                    stop_action();
+
+                    // TODO instead of a hardcoded value, find a way to get a more reliable angle
+                    turn(-35);
+
+                    // The distance returned by the sonar is not enough to get to the object, so we add a certain distance to it.
+                    // Might be a good idea to find another way than to hardcode the value.
+                    return last_distances_average + 20;
+                }
+
+                nb_detection = 0;
+
+                // "Clear" the array by replacing all of its value by 0.
+                for (int i = 0; i < MAX_DETECTION; i++)
+                {
+                    last_distances[i] = 0.0;
+                }
+            }
+        }
+        else
+        {
+            if (nb_detection >= MIN_DETECTION && nb_detection <= MAX_DETECTION)
+            {
+                /*If the first detected object was detected long enough, but not too long, we will return the distance
+                from the robot to the object and apply a turn to the left to the robot to correct the fact that he
+                overshot the object.*/
+
+                stop_action();
+
+                // TODO instead of a hardcoded value, find a way to get a more reliable angle
+                turn(-35);
+
+                // The distance returned by the sonar is not enough to get to the object, so we add a certain distance to it.
+                // Might be a good idea to find another way than to hardcode the value.
+                return last_distances_average + 20;
+            }
+
+            nb_detection = 0;
+
+            // "Clear" the array by replacing all of its value by 0.
+            for (int i = 0; i < MAX_DETECTION; i++)
+            {
+                last_distances[i] = 0;
+            }
+        }
+    }
+}
+
+void stop_action()
+{
+    // Stop the motors
+    MOTOR_SetSpeed(LEFT, 0); 
+    MOTOR_SetSpeed(RIGHT, 0); 
+    ENCODER_Reset(LEFT);
+    ENCODER_Reset(RIGHT);
+    _delay_us(10);
 }
