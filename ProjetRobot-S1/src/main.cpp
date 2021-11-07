@@ -14,12 +14,16 @@
 #define QUARTER_BASE_SPEED BASE_SPEED/4 // 1/4 de la vitesse de base pour départs et arrets plus doux
 #define FACTEUR_CORRECTION 0.0004       // Facteur de correction pour le PID
 #define CORRECTION_PAR_TOUR 8           // Nombre de fois que le PID ajuste les valeurs de vitesses par tour
- 
+#define SIFFLET A0
+#define NOISE A1 
+
 const float TAILLE_ROUE_CM = TAILLE_ROUE_ROBOTA * 3.141592;
 
 void avance_tour_roue(float nbTour); 
 void avance (float distance);
 void turn (float angle);
+bool detect5khz();
+void setupAlex();
 
 /* 
 Fonction de setup pour initialiser le robot
@@ -33,27 +37,33 @@ void setup()
     MOTOR_SetSpeed(RIGHT, 0); 
     pinMode(28, INPUT);
     Serial.println("Start"); 
+    
 } 
 
 void loop() 
 {
+    
+   /*
     bool sw = 0;
     while(sw == 0)
     {
         sw = digitalRead(28);
         delay(1);
     }
-
+    */
+   
+    
+/*
     turn(180);
     delay(1000);
     turn(90);
     delay(1000);
     turn(-90);
-
+*/
     MOTOR_SetSpeed(LEFT, 0);
     MOTOR_SetSpeed(RIGHT, 0);
 
-    while(1);
+    //while(1);
 }
 
 void avance (float distance)
@@ -70,8 +80,8 @@ void turn (float angle){
 
     float convert = abs(angle /360 * PULSE_PAR_ROND);
 
-    Serial.println(convert);
-    Serial.println(angle);
+    //Serial.println(convert);
+    //Serial.println(angle);
 
     if (angle != 180)
     {
@@ -177,4 +187,32 @@ void avance_tour_roue(float nbTour)
     nbPulseLeft = ENCODER_ReadReset(LEFT);
     nbPulseRight = ENCODER_ReadReset(RIGHT);
     _delay_us(10);
+}
+
+bool detect5khz ()
+{
+      
+    float tensionSifflet = analogRead(SIFFLET);
+    float bruitAmbiant = analogRead(NOISE);
+    float difference = tensionSifflet-bruitAmbiant;
+
+    Serial.println("Voltage:");
+    Serial.println(difference);
+
+    if (difference < 220)
+    {
+       return true;
+    }
+    else
+    {
+        return false;
+    }
+    
+}
+
+void setupAlex()
+{
+    pinMode(SIFFLET, INPUT); //A0
+    pinMode(NOISE, INPUT); //A1
+
 }
