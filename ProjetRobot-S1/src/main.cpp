@@ -16,6 +16,7 @@
 #define BLUE_DEL_PIN 48
 #define YELLOW_DEL_PIN 47
 #define GREEN_DEL_PIN 49
+#define LINE_PIN A7
 
 const float WHEEL_SIZE_CM = WHEEL_SIZE_ROBOTA * 3.141592;
 
@@ -25,6 +26,7 @@ void pin_setup();
 void turn_on_del(int del_pin);
 void turn_off_del(int del_pin);
 void turn_off_del_all();
+void detectLine();
 
 void setup()
 { 
@@ -49,11 +51,7 @@ void loop()
         sw = digitalRead(28);
         delay(1);
     }
-
-    MOTOR_SetSpeed(LEFT, 0);
-    MOTOR_SetSpeed(RIGHT, 0);
-
-    while(1);
+    detectLine();
 }
 
 /**
@@ -187,6 +185,9 @@ void pin_setup()
 {
     pinMode(28, INPUT);
 
+    //Vout SENSOR LIGNE
+    pinMode(LINE_PIN, INPUT);
+
     // DEL
     pinMode(RED_DEL_PIN, OUTPUT);
     pinMode(BLUE_DEL_PIN, OUTPUT);
@@ -223,4 +224,49 @@ void turn_off_del_all()
     digitalWrite(BLUE_DEL_PIN, LOW);
     digitalWrite(YELLOW_DEL_PIN, LOW);
     digitalWrite(GREEN_DEL_PIN, LOW);
+}
+void detectLine()
+{
+    MOTOR_SetSpeed(LEFT, BASE_SPEED); 
+    MOTOR_SetSpeed(RIGHT, BASE_SPEED);
+
+    while (true)
+    {
+        delay(10);
+        int detect_value = analogRead(A7);
+
+        if (detect_value == 733 || detect_value == 441 || detect_value == 1021)
+        {
+            continue;
+        }
+
+        if(detect_value < 291+3 && detect_value > 291-3) //detection par SENSOR_DROITE
+        {
+            MOTOR_SetSpeed(LEFT, BASE_TURN_SPEED); 
+            MOTOR_SetSpeed(RIGHT, 0);
+
+            while(detect_value > 148 + 3 || detect_value < 148 - 3)
+            {
+                delay(1);
+                detect_value = analogRead(A7);
+            }
+
+            MOTOR_SetSpeed(LEFT, BASE_SPEED); 
+            MOTOR_SetSpeed(RIGHT, BASE_SPEED);
+        }
+        else if(detect_value < 583+3 && detect_value > 583-3) //detection par SENSOR_GAUCHE 
+        {
+            MOTOR_SetSpeed(LEFT, 0); 
+            MOTOR_SetSpeed(RIGHT, BASE_TURN_SPEED);
+
+            while(detect_value > 148 + 3 || detect_value < 148 - 3)
+            {
+                delay(1);
+                detect_value = analogRead(A7);
+            }
+
+            MOTOR_SetSpeed(LEFT, BASE_SPEED); 
+            MOTOR_SetSpeed(RIGHT, BASE_SPEED);
+        }
+    }
 }
