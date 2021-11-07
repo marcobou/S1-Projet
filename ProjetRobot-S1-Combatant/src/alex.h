@@ -42,17 +42,21 @@
 
 
 
-// defines pour les mouvements
-#define ENCODE_TOUR_ROUE 3200     // Nombre de ticks d'encodeur pour faire un tour
-#define PULSE_PAR_ROND 7979*2
-#define TAILLE_ROUE_PO 9.42477796 // Taille des roues en pouces
-#define TAILLE_ROUE 23.97035195
+// defines for movements
+#define PULSES_BY_TURN 3200             // Number of ticks/pulses that the encoders read each time the wheels finish a turn
+#define PULSES_BY_CIRCLE 7979 * 2
+#define WHEEL_SIZE_ROBOTA 7.63
+#define WHEEL_SIZE_ROBOTB 7.55
+ 
+#define BASE_SPEED 0.2                  // Base speed of the robot when going forward
+#define BASE_TURN_SPEED 0.3             // Base speed of the robot when turning
+#define CORRECTION_FACTOR 0.0004        // Correction factor for the PID
 
-#define BASE_SPEED 0.2 
-#define BASE_TURN_SPEED 0.3                 // Vitesse de base
-#define MINUS_BASE_SPEED -0.4           // Vitesse de base negative
-#define QUARTER_BASE_SPEED BASE_SPEED/4 // 1/4 de la vitesse de base pour départs et arrets plus doux
-#define FACTEUR_CORRECTION 0.0004       // Facteur de correction pour le PID
-#define CORRECTION_PAR_TOUR 8           // Nombre de fois que le PID ajuste les valeurs de vitesses par tour
+// PIN numbers for the DEL, 50-51-52 are already taken by ROBUS
+#define RED_DEL_PIN 53
+#define BLUE_DEL_PIN 48
+#define YELLOW_DEL_PIN 47
+#define GREEN_DEL_PIN 49
 
+// Pin for sensors
 #define PIN_COLOR_SENSOR 13

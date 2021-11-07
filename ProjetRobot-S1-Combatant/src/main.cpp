@@ -25,31 +25,234 @@ class CustomColor
 
 Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);
 
+const float WHEEL_SIZE_CM = WHEEL_SIZE_ROBOTA * 3.141592;
+
+void forward (float distance);
+void turn (float angle);
+void pin_setup();
+void turn_on_del(int del_pin);
+void turn_off_del(int del_pin);
+void turn_off_del_all();
 void initColorSensor();
 CustomColor readColorOnce();
 int findColor(CustomColor);
 
-void setup() {
-  // put your setup code here, to run once:
+void setup() 
+{
+    Serial.begin(9600); 
+
+    BoardInit(); 
+
+    MOTOR_SetSpeed(LEFT, 0); 
+    MOTOR_SetSpeed(RIGHT, 0);
+
+    pin_setup();
+    turn_off_del_all();
+
+    initColorSensor();
+
+    Serial.println("Start");
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
+    bool sw = 0;
+    while(sw == 0)
+    {
+        sw = digitalRead(28);
+        delay(1);
+    }
+
+    MOTOR_SetSpeed(LEFT, 0);
+    MOTOR_SetSpeed(RIGHT, 0);
+
+    while(1);
 }
 
+/**
+ * Function to make the robot turn.
+ * 
+ * @param[in] angle The angle at which the robot must turn. A negative value will make it turn to the left.
+ */
+void turn (float angle){
+    long nbPulses = 0;
+
+    // Variables contenant les dernières valeurs d'encodeurs
+    ENCODER_Reset(RIGHT);
+    ENCODER_Reset(LEFT); 
+
+    float convert = abs(angle /360 * PULSES_BY_CIRCLE);
+
+    Serial.println(convert);
+    Serial.println(angle);
+
+    if (angle != 180)
+    {
+        // angle < 0 = tourner à gauche, angle > 0 = tourner à droite
+        int turn_motor = angle < 0 ? RIGHT : LEFT;
+
+        MOTOR_SetSpeed(turn_motor, BASE_TURN_SPEED);
+
+        while(convert > nbPulses)
+        {
+            _delay_us(10);
+            nbPulses = ENCODER_Read(turn_motor);
+        }
+
+        MOTOR_SetSpeed(turn_motor, 0);
+    }
+    else
+    {
+        // tourne de 180
+
+        MOTOR_SetSpeed(LEFT, BASE_TURN_SPEED);
+        MOTOR_SetSpeed(RIGHT, -BASE_TURN_SPEED);
+
+        while(((convert - 200) / 2) > nbPulses)
+        {
+            _delay_us(10);
+            nbPulses = ENCODER_Read(LEFT);
+        }
+
+        MOTOR_SetSpeed(LEFT, 0);
+        MOTOR_SetSpeed(RIGHT, 0);
+    }
+
+    _delay_us(10);
+ }
+
+/**
+ * Function that makes the robot go forward.
+ * 
+ * @param[in] distance The distance for which the robot must go forward.
+ */
+void forward(float distance) 
+{ 
+    float nb_wheel_turn = 1.0f * distance / WHEEL_SIZE_CM;
+
+    ENCODER_Reset(RIGHT);
+    ENCODER_Reset(LEFT); 
+    
+    // Ratio used to adjust the speed of the two wheels.
+    float speed_ratio = 0;
+
+    long pulse_to_do = nb_wheel_turn * PULSES_BY_TURN;
+    long pulses_left = 0;
+    long pulses_right;
+
+    MOTOR_SetSpeed(LEFT, (BASE_SPEED)); 
+    MOTOR_SetSpeed(RIGHT, BASE_SPEED);
+
+    float added_speed = 0.0001f;
+    float reduce_speed = added_speed * 1.0f;
+    float current_speed = BASE_SPEED;
+    float max_speed = 0.9f;
+    float min_speed = 0.2f;
+
+    while(pulses_left < pulse_to_do)
+    {
+        pulses_left = ENCODER_Read(LEFT);
+        pulses_right = ENCODER_Read(RIGHT);
+
+        if (pulses_left * 1.0f / pulse_to_do < 0.5f)
+        {
+            if (current_speed < max_speed)
+            {
+                current_speed += added_speed;
+            }
+        }
+        else
+        {
+            if (current_speed > min_speed)
+            {
+                current_speed -= reduce_speed;
+            }
+        }
+
+        if(WHEEL_SIZE_CM == WHEEL_SIZE_ROBOTA)
+        {
+            speed_ratio = (pulses_right - pulses_left) * CORRECTION_FACTOR;
+            MOTOR_SetSpeed(LEFT, current_speed + speed_ratio); 
+            MOTOR_SetSpeed(RIGHT, current_speed);
+        }
+        else
+        {
+            speed_ratio = (pulses_left - pulses_right) * CORRECTION_FACTOR;
+            MOTOR_SetSpeed(LEFT, current_speed); 
+            MOTOR_SetSpeed(RIGHT, current_speed + speed_ratio);
+        }
+
+        _delay_us(100);
+    }
+ 
+    // Stop the motors
+    MOTOR_SetSpeed(LEFT, 0); 
+    MOTOR_SetSpeed(RIGHT, 0); 
+    ENCODER_Reset(LEFT);
+    ENCODER_Reset(RIGHT);
+    _delay_us(10);
+}
+
+/**
+ * Function that configure the different pins.
+ */
+void pin_setup()
+{
+    pinMode(28, INPUT);
+
+    // DEL
+    pinMode(RED_DEL_PIN, OUTPUT);
+    pinMode(BLUE_DEL_PIN, OUTPUT);
+    pinMode(YELLOW_DEL_PIN, OUTPUT);
+    pinMode(GREEN_DEL_PIN, OUTPUT);
+}
+
+/**
+ * Function to turn on a DEL.
+ * 
+ * @param[in] del_pin The pin of the DEL that we wish to turn on.
+ */
+void turn_on_del(int del_pin)
+{
+    digitalWrite(del_pin, HIGH);
+}
+
+/**
+ * Function to turn off a DEL.
+ * 
+ * @param[in] del_pin The pin of the DEL that we wish to turn off.
+ */
+void turn_off_del(int del_pin)
+{
+    digitalWrite(del_pin, LOW);
+}
+
+/**
+ * Function to turn off all the DEL.
+ */
+void turn_off_del_all()
+{
+    digitalWrite(RED_DEL_PIN, LOW);
+    digitalWrite(BLUE_DEL_PIN, LOW);
+    digitalWrite(YELLOW_DEL_PIN, LOW);
+    digitalWrite(GREEN_DEL_PIN, LOW);
+}
+
+/*
+Init anything related to the color sensor
+*/
 void initColorSensor()
 {
     pinMode(PIN_COLOR_SENSOR, OUTPUT);
     digitalWrite(13, 1);
 
-    // essai de créer une connexion avec le capteur jusqu'a réussite
+    // try to connect to the color sensor
     while (!tcs.begin())
     {
         Serial.println("No TCS34725 found ... check your connections");
-        // retire et redonne du courant au capteur à chaque échec de connexion
-        digitalWrite(13, 0);
+        // cut power to the sensor and turn it back on until it works
+        digitalWrite(PIN_COLOR_SENSOR, 0);
         delay(1000);
-        digitalWrite(13, 1);
+        digitalWrite(PIN_COLOR_SENSOR, 1);
     } 
 }
 /*
