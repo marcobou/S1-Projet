@@ -54,3 +54,5 @@
 #define QUARTER_BASE_SPEED BASE_SPEED/4 // 1/4 de la vitesse de base pour départs et arrets plus doux
 #define FACTEUR_CORRECTION 0.0004       // Facteur de correction pour le PID
 #define CORRECTION_PAR_TOUR 8           // Nombre de fois que le PID ajuste les valeurs de vitesses par tour
+
+#define PIN_COLOR_SENSOR 13

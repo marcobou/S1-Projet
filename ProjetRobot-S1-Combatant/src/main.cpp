@@ -2,9 +2,7 @@
 #include <math.h>
 #include <Wire.h>
 #include "Adafruit_TCS34725.h"
-#include "defines.h"
-
-using namespace defines;
+#include "alex.h"
 
 class CustomColor
 {
@@ -25,6 +23,9 @@ class CustomColor
         }
 };
 
+Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);
+
+void initColorSensor();
 CustomColor readColorOnce();
 int findColor(CustomColor);
 
@@ -36,13 +37,30 @@ void loop() {
   // put your main code here, to run repeatedly:
 }
 
+void initColorSensor()
+{
+    pinMode(PIN_COLOR_SENSOR, OUTPUT);
+    digitalWrite(13, 1);
+
+    // essai de créer une connexion avec le capteur jusqu'a réussite
+    while (!tcs.begin())
+    {
+        Serial.println("No TCS34725 found ... check your connections");
+        // retire et redonne du courant au capteur à chaque échec de connexion
+        digitalWrite(13, 0);
+        delay(1000);
+        digitalWrite(13, 1);
+    } 
+}
 /*
-Cette fonction fait la lecture du capteur de couleur et retourne un objet avec
-les 3 composantes de couleur
+This function returns a CustomColor objet with the Red, Green and Blue relative
+values of what is under the sensor.
 */
 CustomColor readColorOnce()
 {
     CustomColor color = CustomColor(0,0,0);
+
+    // variables used in the calculations and readings
     uint32_t sum;
     uint16_t clear;
     float r, g, b;
@@ -51,17 +69,19 @@ CustomColor readColorOnce()
 
     delay(70);  // takes 50ms to read
 
-    tcs.getRawData(&color.Red, &color.Green, &color.Blue, &clear);
+    tcs.getRawData(&color.Red, &color.Green, &color.Blue, &clear); // get data from sensor
 
     tcs.setInterrupt(true);  // turn off LED
 
     sum = clear;
 
-    r = color.Red; r /= sum;
+    // put values as relatives for easier comparing
+    r = color.Red; r /= sum; 
     g = color.Green; g /= sum;
     b = color.Blue; b /= sum;
     r *= 256; g *= 256; b *= 256;
 
+    // put values in int format
     color.Red = (int)r;
     color.Green = (int)g;
     color.Blue = (int)b;
@@ -70,9 +90,9 @@ CustomColor readColorOnce()
 }
 
 /*
-Cette fonction prend en entrée un objet de couleur et le compare à des valeurs
-pré-déterminées pour savoir si l'objet de couleur est l'une des couleurs recherchées.
-La fonction retourne la couleur trouvée selon un index défini
+This function takes in a color object and compairs the RGB values to presets
+for each possible colors. An int with a value relative to the color that fit the
+RGB values is returned.
 */
 int findColor(CustomColor color)
 {
