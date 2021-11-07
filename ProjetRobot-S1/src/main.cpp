@@ -2,75 +2,69 @@
 #include <LibRobus.h>
 #include <math.h>
 
-#define ENCODE_TOUR_ROUE 3200     // Nombre de ticks d'encodeur pour faire un tour
-#define PULSE_PAR_ROND 7979*2
-#define TAILLE_ROUE_PO 9.42477796 // Taille des roues en pouces
-#define TAILLE_ROUE_ROBOTA 7.63
-#define TAILLE_ROUE_ROBOTB 7.55
+#define PULSES_BY_TURN 3200             // Number of ticks/pulses that the encoders read each time the wheels finish a turn
+#define PULSES_BY_CIRCLE 7979 * 2
+#define WHEEL_SIZE_ROBOTA 7.63
+#define WHEEL_SIZE_ROBOTB 7.55
  
-#define BASE_SPEED 0.2 
-#define BASE_TURN_SPEED 0.3                 // Vitesse de base
-#define MINUS_BASE_SPEED -0.4           // Vitesse de base negative
-#define QUARTER_BASE_SPEED BASE_SPEED/4 // 1/4 de la vitesse de base pour départs et arrets plus doux
-#define FACTEUR_CORRECTION 0.0004       // Facteur de correction pour le PID
-#define CORRECTION_PAR_TOUR 8           // Nombre de fois que le PID ajuste les valeurs de vitesses par tour
+#define BASE_SPEED 0.2                  // Base speed of the robot when going forward
+#define BASE_TURN_SPEED 0.3             // Base speed of the robot when turning
+#define CORRECTION_FACTOR 0.0004        // Correction factor for the PID
+
+// PIN numbers for the DEL, 50-51-52 are already taken by ROBUS
+#define RED_DEL_PIN 53
+#define BLUE_DEL_PIN 48
+#define YELLOW_DEL_PIN 47
+#define GREEN_DEL_PIN 49
+
 #define SIFFLET A0
 #define NOISE A1 
 
-const float TAILLE_ROUE_CM = TAILLE_ROUE_ROBOTA * 3.141592;
+const float WHEEL_SIZE_CM = WHEEL_SIZE_ROBOTA * 3.141592;
 
-void avance_tour_roue(float nbTour); 
-void avance (float distance);
+void forward (float distance);
 void turn (float angle);
 bool detect5khz();
-void setupAlex();
+void pin_setup();
+void turn_on_del(int del_pin);
+void turn_off_del(int del_pin);
+void turn_off_del_all();
 
-/* 
-Fonction de setup pour initialiser le robot
-*/
 void setup()
 { 
-    // put your setup code here, to run once: 
     Serial.begin(9600); 
+
     BoardInit(); 
+
     MOTOR_SetSpeed(LEFT, 0); 
-    MOTOR_SetSpeed(RIGHT, 0); 
-    pinMode(28, INPUT);
+    MOTOR_SetSpeed(RIGHT, 0);
+
+    pin_setup();
+    turn_off_del_all();
+
     Serial.println("Start"); 
-    
+    delay(1000);
 } 
 
 void loop() 
 {
-    
-   /*
-    bool sw = 0;
-    while(sw == 0)
+    bool x = detect5khz ();
+    if ( x )
     {
-        sw = digitalRead(28);
-        delay(1);
+        Serial.println ("sifflet is a go!!!");
+
     }
-    */
-   
     
-/*
-    turn(180);
+    Serial.println (x);
+    
     delay(1000);
-    turn(90);
-    delay(1000);
-    turn(-90);
-*/
-    MOTOR_SetSpeed(LEFT, 0);
-    MOTOR_SetSpeed(RIGHT, 0);
-
-    //while(1);
 }
 
-void avance (float distance)
-{
-  avance_tour_roue(1.0f * distance / TAILLE_ROUE_CM); 
-}
-
+/**
+ * Function to make the robot turn.
+ * 
+ * @param[in] angle The angle at which the robot must turn. A negative value will make it turn to the left.
+ */
 void turn (float angle){
     long nbPulses = 0;
 
@@ -78,7 +72,7 @@ void turn (float angle){
     ENCODER_Reset(RIGHT);
     ENCODER_Reset(LEFT); 
 
-    float convert = abs(angle /360 * PULSE_PAR_ROND);
+    float convert = abs(angle /360 * PULSES_BY_CIRCLE);
 
     //Serial.println(convert);
     //Serial.println(angle);
@@ -118,25 +112,26 @@ void turn (float angle){
     _delay_us(10);
  }
 
-/*
-Cette fonction prend en entrée un nombre entier et fait tourner les
-roues un nombre de tour égal a ce nombre entier
-*/
-void avance_tour_roue(float nbTour) 
+/**
+ * Function that makes the robot go forward.
+ * 
+ * @param[in] distance The distance for which the robot must go forward.
+ */
+void forward(float distance) 
 { 
-    long nbPulseRight = 0;
-    long nbPulseLeft = 0;
+    float nb_wheel_turn = 1.0f * distance / WHEEL_SIZE_CM;
 
-    ENCODER_Reset(RIGHT); // Variables contenant les dernières valeures d'encodeurs
+    ENCODER_Reset(RIGHT);
     ENCODER_Reset(LEFT); 
     
-    float speedRatio = 0; // Ratio utilisé pour ajuster le rapport de vitesse entre les deux roues
+    // Ratio used to adjust the speed of the two wheels.
+    float speed_ratio = 0;
 
-    long pulse_to_do = nbTour * 3200;
+    long pulse_to_do = nb_wheel_turn * PULSES_BY_TURN;
     long pulses_left = 0;
     long pulses_right;
 
-    MOTOR_SetSpeed(LEFT, (BASE_SPEED)); 
+    MOTOR_SetSpeed(LEFT, BASE_SPEED); 
     MOTOR_SetSpeed(RIGHT, BASE_SPEED);
 
     float added_speed = 0.0001f;
@@ -165,54 +160,96 @@ void avance_tour_roue(float nbTour)
             }
         }
 
-        if(TAILLE_ROUE_CM == TAILLE_ROUE_ROBOTA)
+        if(WHEEL_SIZE_CM == WHEEL_SIZE_ROBOTA)
         {
-            speedRatio = (pulses_right-pulses_left)*FACTEUR_CORRECTION;
-            MOTOR_SetSpeed(LEFT, current_speed + speedRatio); 
+            speed_ratio = (pulses_right - pulses_left) * CORRECTION_FACTOR;
+            MOTOR_SetSpeed(LEFT, current_speed + speed_ratio); 
             MOTOR_SetSpeed(RIGHT, current_speed);
         }
         else
         {
-            speedRatio = (pulses_left-pulses_right)*FACTEUR_CORRECTION;
+            speed_ratio = (pulses_left - pulses_right) * CORRECTION_FACTOR;
             MOTOR_SetSpeed(LEFT, current_speed); 
-            MOTOR_SetSpeed(RIGHT, current_speed + speedRatio);
+            MOTOR_SetSpeed(RIGHT, current_speed + speed_ratio);
         }
 
         _delay_us(100);
     }
  
-    // Stop les moteurs
+    // Stop the motors
     MOTOR_SetSpeed(LEFT, 0); 
     MOTOR_SetSpeed(RIGHT, 0); 
-    nbPulseLeft = ENCODER_ReadReset(LEFT);
-    nbPulseRight = ENCODER_ReadReset(RIGHT);
+    ENCODER_Reset(LEFT);
+    ENCODER_Reset(RIGHT);
     _delay_us(10);
 }
 
+
+/**
+* Function that detects the whistle baby whistle baby here whe go!
+ * 
+ *@param[out] whistleIsDetected True if whislte is detected, false if not.
+*/
 bool detect5khz ()
 {
       
-    float tensionSifflet = analogRead(SIFFLET);
-    float bruitAmbiant = analogRead(NOISE);
-    float difference = tensionSifflet-bruitAmbiant;
+    float whistleTension = analogRead(SIFFLET);
+    float ambiantNoise = analogRead(NOISE);
+    float difference = whistleTension - ambiantNoise;
 
     Serial.println("Voltage:");
     Serial.println(difference);
+    Serial.println(whistleTension);
+    Serial.println(ambiantNoise);
 
-    if (difference < 220)
-    {
-       return true;
-    }
-    else
-    {
-        return false;
-    }
+    return difference < 100;
     
 }
 
-void setupAlex()
+/**
+ * Function that configure the different pins.
+ */
+void pin_setup()
 {
+    pinMode(28, INPUT);
+
+    // DEL
+    pinMode(RED_DEL_PIN, OUTPUT);
+    pinMode(BLUE_DEL_PIN, OUTPUT);
+    pinMode(YELLOW_DEL_PIN, OUTPUT);
+    pinMode(GREEN_DEL_PIN, OUTPUT);
+
     pinMode(SIFFLET, INPUT); //A0
     pinMode(NOISE, INPUT); //A1
+}
 
+/**
+ * Function to turn on a DEL.
+ * 
+ * @param[in] del_pin The pin of the DEL that we wish to turn on.
+ */
+void turn_on_del(int del_pin)
+{
+    digitalWrite(del_pin, HIGH);
+}
+
+/**
+ * Function to turn off a DEL.
+ * 
+ * @param[in] del_pin The pin of the DEL that we wish to turn off.
+ */
+void turn_off_del(int del_pin)
+{
+    digitalWrite(del_pin, LOW);
+}
+
+/**
+ * Function to turn off all the DEL.
+ */
+void turn_off_del_all()
+{
+    digitalWrite(RED_DEL_PIN, LOW);
+    digitalWrite(BLUE_DEL_PIN, LOW);
+    digitalWrite(YELLOW_DEL_PIN, LOW);
+    digitalWrite(GREEN_DEL_PIN, LOW);
 }
