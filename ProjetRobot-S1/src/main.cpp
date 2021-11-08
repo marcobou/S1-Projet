@@ -27,9 +27,9 @@
 #define YELLOW_DEL_PIN 47
 #define GREEN_DEL_PIN 49
 
-// === DETECTION ===
+// === LINE DETECTION ===
 #define LINE_PIN A7
-#define DETECTION_SPEED 0.3
+#define LINE_DETECTION_SPEED 0.3
 
 // === OBJECT DETECTION ===
 #define SONAR_ID 0
@@ -37,6 +37,7 @@
 #define MIN_DETECTION 4                 // Mininum number of detection that it takes for the robot to decide that he detected the object.
 #define MAX_DETECTION 12                // Maximum number of detection that it takes for the robot to decide that he did NOT detect the object.
 #define DETECTION_TURN_SPEED 0.2
+#define WALL_DISTANCE 88
 
 const float WHEEL_SIZE_CM = WHEEL_SIZE_ROBOTA * 3.141592;
 
@@ -49,7 +50,7 @@ void turn_off_del_all();
 float detect_object(float max_distance);
 void seek_object(float max_distance);
 void stop_action();
-void detect_line(float distance);
+void detect_line(float distance, bool get_ball);
 
 void setup()
 { 
@@ -75,7 +76,7 @@ void loop()
         delay(1);
     }
 
-    seek_object(30.0);
+    detect_line(50.0, true);
 }
 
 /**
@@ -291,7 +292,7 @@ void seek_object(float max_distance)
         {
             turn(180);
 
-            detect_line(40.0);
+            detect_line(40.0, false);
         }
         else
         {
@@ -415,14 +416,15 @@ void stop_action()
  * 
  * @param[in] distance The distance for which the robot must follow the line. 
  *      If distance is equal to 0 the robot will follow the line indefinetly.
+ * @param[in] get_ball Tell the robot if he must exit the track to get the ball.
  */ 
-void detect_line(float distance)
+void detect_line(float distance, bool get_ball)
 {
     ENCODER_Reset(LEFT);
     ENCODER_Reset(RIGHT);
 
-    MOTOR_SetSpeed(LEFT, BASE_SPEED); 
-    MOTOR_SetSpeed(RIGHT, BASE_SPEED);
+    MOTOR_SetSpeed(LEFT, LINE_DETECTION_SPEED); 
+    MOTOR_SetSpeed(RIGHT, LINE_DETECTION_SPEED);
 
     float nb_wheel_turn = distance / WHEEL_SIZE_CM;
     long nb_pulses = nb_wheel_turn * PULSES_BY_TURN;
@@ -431,12 +433,23 @@ void detect_line(float distance)
     {
         delay(10);
 
-        if (distance != 0.0 && ENCODER_Read(LEFT) >= nb_pulses)
+        if (distance != 0.0 && !get_ball && ENCODER_Read(LEFT) >= nb_pulses)
         {
             break;
         }
 
         int detect_value = analogRead(A7);
+
+        if (get_ball && detect_value == 733)
+        {
+            MOTOR_SetSpeed(LEFT, 0);
+            MOTOR_SetSpeed(RIGHT, 0);
+
+            turn(-90);
+            forward(50);
+
+            break;
+        }
 
         if (detect_value == 733 || detect_value == 441 || detect_value == 1021)
         {
@@ -472,9 +485,5 @@ void detect_line(float distance)
         }
     }
 
-    MOTOR_SetSpeed(LEFT, 0); 
-    MOTOR_SetSpeed(RIGHT, 0);
-
-    ENCODER_Reset(LEFT);
-    ENCODER_Reset(RIGHT);
+    stop_action();
 }
