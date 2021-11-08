@@ -26,7 +26,7 @@ void pin_setup();
 void turn_on_del(int del_pin);
 void turn_off_del(int del_pin);
 void turn_off_del_all();
-void detectLine();
+void detect_line(float distance);
 
 void setup()
 { 
@@ -51,7 +51,6 @@ void loop()
         sw = digitalRead(28);
         delay(1);
     }
-    detectLine();
 }
 
 /**
@@ -225,14 +224,33 @@ void turn_off_del_all()
     digitalWrite(YELLOW_DEL_PIN, LOW);
     digitalWrite(GREEN_DEL_PIN, LOW);
 }
-void detectLine()
+
+/**
+ * Function makes the robot follow the white line.
+ * 
+ * @param[in] distance The distance for which the robot must follow the line. 
+ *      If distance is equal to 0 the robot will follow the line indefinetly.
+ */ 
+void detect_line(float distance)
 {
+    ENCODER_Reset(LEFT);
+    ENCODER_Reset(RIGHT);
+
     MOTOR_SetSpeed(LEFT, BASE_SPEED); 
     MOTOR_SetSpeed(RIGHT, BASE_SPEED);
+
+    float nb_wheel_turn = distance / WHEEL_SIZE_CM;
+    long nb_pulses = nb_wheel_turn * PULSES_BY_TURN;
 
     while (true)
     {
         delay(10);
+
+        if (distance != 0.0 && ENCODER_Read(LEFT) >= nb_pulses)
+        {
+            break;
+        }
+
         int detect_value = analogRead(A7);
 
         if (detect_value == 733 || detect_value == 441 || detect_value == 1021)
@@ -250,7 +268,6 @@ void detectLine()
                 delay(1);
                 detect_value = analogRead(A7);
             }
-
             MOTOR_SetSpeed(LEFT, BASE_SPEED); 
             MOTOR_SetSpeed(RIGHT, BASE_SPEED);
         }
@@ -269,4 +286,10 @@ void detectLine()
             MOTOR_SetSpeed(RIGHT, BASE_SPEED);
         }
     }
+
+    MOTOR_SetSpeed(LEFT, 0); 
+    MOTOR_SetSpeed(RIGHT, 0);
+
+    ENCODER_Reset(LEFT);
+    ENCODER_Reset(RIGHT);
 }
