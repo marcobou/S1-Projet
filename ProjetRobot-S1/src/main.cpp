@@ -27,12 +27,16 @@
 #define YELLOW_DEL_PIN 47
 #define GREEN_DEL_PIN 49
 
+// === DETECTION ===
+#define LINE_PIN A7
+#define DETECTION_SPEED 0.3
+
 // === OBJECT DETECTION ===
 #define SONAR_ID 0
 #define MARGIN_ERROR_DISTANCE 0.05
 #define MIN_DETECTION 4                 // Mininum number of detection that it takes for the robot to decide that he detected the object.
-#define MAX_DETECTION 9                // Maximum number of detection that it takes for the robot to decide that he did NOT detect the object.
-#define DETECTION_TURN_SPEED 0.1
+#define MAX_DETECTION 12                // Maximum number of detection that it takes for the robot to decide that he did NOT detect the object.
+#define DETECTION_TURN_SPEED 0.2
 
 const float WHEEL_SIZE_CM = WHEEL_SIZE_ROBOTA * 3.141592;
 
@@ -45,6 +49,7 @@ void turn_off_del_all();
 float detect_object(float max_distance);
 void seek_object(float max_distance);
 void stop_action();
+void detect_line(float distance);
 
 void setup()
 { 
@@ -193,6 +198,9 @@ void pin_setup()
 {
     pinMode(FRONT_BUMPER_PIN, INPUT);
 
+    //Vout SENSOR LIGNE
+    pinMode(LINE_PIN, INPUT);
+
     // DEL
     pinMode(RED_DEL_PIN, OUTPUT);
     pinMode(BLUE_DEL_PIN, OUTPUT);
@@ -283,7 +291,7 @@ void seek_object(float max_distance)
         {
             turn(180);
 
-            //TODO suivre ligne sur distance
+            detect_line(40.0);
         }
         else
         {
@@ -400,4 +408,73 @@ void stop_action()
     ENCODER_Reset(LEFT);
     ENCODER_Reset(RIGHT);
     _delay_us(10);
+}
+
+/** 
+ * Function makes the robot follow the white line.
+ * 
+ * @param[in] distance The distance for which the robot must follow the line. 
+ *      If distance is equal to 0 the robot will follow the line indefinetly.
+ */ 
+void detect_line(float distance)
+{
+    ENCODER_Reset(LEFT);
+    ENCODER_Reset(RIGHT);
+
+    MOTOR_SetSpeed(LEFT, BASE_SPEED); 
+    MOTOR_SetSpeed(RIGHT, BASE_SPEED);
+
+    float nb_wheel_turn = distance / WHEEL_SIZE_CM;
+    long nb_pulses = nb_wheel_turn * PULSES_BY_TURN;
+
+    while (true)
+    {
+        delay(10);
+
+        if (distance != 0.0 && ENCODER_Read(LEFT) >= nb_pulses)
+        {
+            break;
+        }
+
+        int detect_value = analogRead(A7);
+
+        if (detect_value == 733 || detect_value == 441 || detect_value == 1021)
+        {
+            continue;
+        }
+
+        if(detect_value < 291+3 && detect_value > 291-3) //detection par SENSOR_DROITE
+        {
+            MOTOR_SetSpeed(LEFT, BASE_TURN_SPEED); 
+            MOTOR_SetSpeed(RIGHT, 0);
+
+            while(detect_value > 148 + 3 || detect_value < 148 - 3)
+            {
+                delay(1);
+                detect_value = analogRead(A7);
+            }
+            MOTOR_SetSpeed(LEFT, BASE_SPEED); 
+            MOTOR_SetSpeed(RIGHT, BASE_SPEED);
+        }
+        else if(detect_value < 583+3 && detect_value > 583-3) //detection par SENSOR_GAUCHE 
+        {
+            MOTOR_SetSpeed(LEFT, 0); 
+            MOTOR_SetSpeed(RIGHT, BASE_TURN_SPEED);
+
+            while(detect_value > 148 + 3 || detect_value < 148 - 3)
+            {
+                delay(1);
+                detect_value = analogRead(A7);
+            }
+
+            MOTOR_SetSpeed(LEFT, BASE_SPEED); 
+            MOTOR_SetSpeed(RIGHT, BASE_SPEED);
+        }
+    }
+
+    MOTOR_SetSpeed(LEFT, 0); 
+    MOTOR_SetSpeed(RIGHT, 0);
+
+    ENCODER_Reset(LEFT);
+    ENCODER_Reset(RIGHT);
 }
