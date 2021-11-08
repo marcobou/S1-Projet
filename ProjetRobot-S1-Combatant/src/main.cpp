@@ -51,6 +51,8 @@ void setup()
 
     initColorSensor();
 
+    delay(1000);
+
     Serial.println("Start");
 }
 
@@ -204,6 +206,11 @@ void pin_setup()
     pinMode(BLUE_DEL_PIN, OUTPUT);
     pinMode(YELLOW_DEL_PIN, OUTPUT);
     pinMode(GREEN_DEL_PIN, OUTPUT);
+
+    // Whistle
+    pinMode(WHISTLE_PIN, INPUT); //A0
+    pinMode(NOISE_PIN, INPUT); //A1
+
 }
 
 /**
@@ -299,7 +306,7 @@ RGB values is returned.
 */
 int findColor(CustomColor color)
 {
-    int colorMatch = UNKNOWN;
+    int color_match = UNKNOWN;
     
     // color is red
     if((color.Red >= RED_MIN_RED && color.Red <= RED_MAX_RED) &&
@@ -307,7 +314,7 @@ int findColor(CustomColor color)
     (color.Blue >= RED_MIN_BLUE && color.Blue <= RED_MAX_BLUE))
     {
         Serial.println("Color is RED");
-        colorMatch = RED;
+        color_match = RED;
     }
     // color is green
     else if((color.Red >= GREEN_MIN_RED && color.Red <= GREEN_MAX_RED) &&
@@ -315,7 +322,7 @@ int findColor(CustomColor color)
     (color.Blue >= GREEN_MIN_BLUE && color.Blue <= GREEN_MAX_BLUE))
     {
         Serial.println("Color is GREEN");
-        colorMatch = GREEN;
+        color_match = GREEN;
     }
     // color is blue
     else if((color.Red >= BLUE_MIN_RED && color.Red <= BLUE_MAX_RED) &&
@@ -323,7 +330,7 @@ int findColor(CustomColor color)
     (color.Blue >= BLUE_MIN_BLUE && color.Blue <= BLUE_MAX_BLUE))
     {
         Serial.println("Color is BLUE");
-        colorMatch = BLUE;
+        color_match = BLUE;
     }
     // color is yellow
     else if((color.Red >= YELLOW_MIN_RED && color.Red <= YELLOW_MAX_RED) &&
@@ -331,7 +338,7 @@ int findColor(CustomColor color)
     (color.Blue >= YELLOW_MIN_BLUE && color.Blue <= YELLOW_MAX_BLUE))
     {
         Serial.println("Color is YELLOW");
-        colorMatch = YELLOW;
+        color_match = YELLOW;
     }
     // color is unknown
     else
@@ -339,5 +346,26 @@ int findColor(CustomColor color)
         Serial.println("Color is UNKNOWN");
     }
     Serial.println();
-    return colorMatch;
+    return color_match;
 }   
+/**
+* Function that detects the whistle baby whistle baby here we go!
+ * 
+ *@param[out] whistleIsDetected True if whislte is detected, false if not.
+*/
+
+bool detect5khz ()
+{
+      
+    float whistle_tension = analogRead(WHISTLE_PIN);
+    float ambiant_noise = analogRead(NOISE_PIN);
+    float difference = whistle_tension - ambiant_noise;
+
+    Serial.println("Voltage:");
+    Serial.println(difference);
+    Serial.println(whistle_tension);
+    Serial.println(ambiant_noise);
+
+    return difference < 100;
+    
+}

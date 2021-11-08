@@ -59,4 +59,8 @@
 #define GREEN_DEL_PIN 49
 
 // Pin for sensors
-#define PIN_COLOR_SENSOR 13
+#define COLOR_SENSOR_PIN 13
+
+// pins for the whistle
+#define WHISTLE_PIN A0
+#define NOISE_PIN   A1 
