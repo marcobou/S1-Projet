@@ -75,8 +75,6 @@ void loop()
         sw = digitalRead(FRONT_BUMPER_PIN);
         delay(1);
     }
-
-    detect_line(50.0, true);
 }
 
 /**

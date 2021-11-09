@@ -2,7 +2,7 @@
 // defines pour le capteur de couleur
 
 // define des couleurs pour retourner une couleur avec une fonction
-#define UNKNOWN 0
+#define INVALID 0
 #define RED     1
 #define GREEN   2
 #define BLUE    3
@@ -40,8 +40,6 @@
 #define YELLOW_MAX_BLUE   77
 #define YELLOW_MIN_BLUE   65
 
-
-
 // defines for movements
 #define PULSES_BY_TURN 3200             // Number of ticks/pulses that the encoders read each time the wheels finish a turn
 #define PULSES_BY_CIRCLE 7979 * 2
@@ -64,3 +62,29 @@
 // pins for the whistle
 #define WHISTLE_PIN A0
 #define NOISE_PIN   A1 
+#define WHISTLE_DIFFERENCE 200
+
+// === LINE DETECTION ===
+#define LINE_PIN A7
+#define LINE_DETECTION_SPEED 0.4
+#define LINE_CORRECTION_SPEED 0.2
+
+// === OBJECT DETECTION ===
+#define SONAR_ID 0
+#define MARGIN_ERROR_DISTANCE 0.05
+#define MIN_DETECTION 4                 // Mininum number of detection that it takes for the robot to decide that he detected the object.
+#define MAX_DETECTION 12                // Maximum number of detection that it takes for the robot to decide that he did NOT detect the object.
+#define DETECTION_TURN_SPEED 0.2
+#define WALL_DISTANCE 88
+#define MAX_DISTANCE 30
+#define DISTANCE_WHEEL_TO_SONAR 13
+
+// ServoMotor
+#define SERVO_MOTOR_ID 0
+#define ARM_LENGTH 25
+
+// Distances
+#define TRACK_TO_COLOR 45
+#define COLOR_TO_BALL 37
+#define BALL_TO_ZONE 180
+#define BALL_TO_TURNING_POINT 30
