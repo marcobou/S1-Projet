@@ -64,6 +64,7 @@ void setup()
     SERVO_Enable(SERVO_MOTOR_ID);
     delay(100);
     move_arm(180);
+    SERVO_Disable(SERVO_MOTOR_ID);
 
     turn_off_del_all();
 
@@ -108,9 +109,6 @@ void turn (float angle){
     reset_encoders();
 
     float convert = abs(angle /360 * PULSES_BY_CIRCLE);
-
-    Serial.println(convert);
-    Serial.println(angle);
 
     if (angle != 180)
     {
@@ -570,6 +568,8 @@ float get_average(float arr[], int size)
  */
 void hit_object(float obj_distance)
 {
+    stop_action();
+    
     if (obj_distance < ARM_LENGTH)
     {
         turn(120);
@@ -578,7 +578,6 @@ void hit_object(float obj_distance)
     }
     else
     {
-        forward(DISTANCE_WHEEL_TO_SONAR);
         turn(90);
         forward(obj_distance);
         turn(180);
@@ -598,12 +597,11 @@ void hit_object(float obj_distance)
  */
 bool object_detection(int *nb_detection, float last_distances[])
 {
+    delay(90);
     float obj_distance = SONAR_GetRange(SONAR_ID);
-    //Serial.println(obj_distance);
-    Serial.println(*nb_detection);
-    float last_distances_average = get_average(last_distances, MIN_DETECTION);
+    float last_distances_average = get_average(last_distances, MIN_DETECTION + 1);
 
-    if (obj_distance <= MAX_DISTANCE)
+    if (obj_distance <= MAX_DISTANCE && obj_distance != 0.0)
     {
         float max_distance_range = last_distances_average * (1.0 + MARGIN_ERROR_DISTANCE);
         float min_distance_range = last_distances_average * (1.0 - MARGIN_ERROR_DISTANCE);
@@ -621,7 +619,9 @@ bool object_detection(int *nb_detection, float last_distances[])
                     of the previous distances is 0 (will happen if there is no distance in the array)
             */
             last_distances[*nb_detection] = obj_distance;
-            *nb_detection++;
+            (*nb_detection)++;
+
+            Serial.println(*nb_detection);
 
             if (*nb_detection >= MIN_DETECTION)
             {             
@@ -634,7 +634,7 @@ bool object_detection(int *nb_detection, float last_distances[])
         *nb_detection = 0;
 
         // "Clear" the array by replacing all of its value by 0.
-        for (int i = 0; i < MAX_DETECTION; i++)
+        for (int i = 0; i < MIN_DETECTION + 1; i++)
         {
             last_distances[i] = 0;
         }
@@ -672,6 +672,11 @@ void reset_encoders()
     ENCODER_Reset(RIGHT);
 }
 
+/**
+ * Function that makes the robot turn until the central sensor meets the track's line.
+ * 
+ * @param[in] direction The direction in which the robot must turn. 0 for left and 1 for right.
+ */ 
 void turn_to_central_sensor(int direction)
 {
     bool turn_right = direction == RIGHT;
@@ -711,7 +716,7 @@ void detect_line(float distance, bool get_ball, bool detect_whistle, bool search
     long nb_pulses = nb_wheel_turn * PULSES_BY_TURN;
 
     int nb_detection = 0;
-    float last_distances [MIN_DETECTION] = {};
+    float last_distances [MIN_DETECTION + 1] = {};
 
     while (true)
     {
@@ -739,7 +744,7 @@ void detect_line(float distance, bool get_ball, bool detect_whistle, bool search
         {
             turn_on_del(GREEN_DEL_PIN);
 
-            hit_object(get_average(last_distances, MIN_DETECTION));
+            hit_object(get_average(last_distances, MIN_DETECTION + 1));
 
             turn_on_del(GREEN_DEL_PIN);
 
@@ -837,6 +842,8 @@ void bring_ball(int color)
  */ 
 void move_arm(int angle)
 {
+    SERVO_Enable(SERVO_MOTOR_ID);
+    delay(100);
     SERVO_SetAngle(SERVO_MOTOR_ID, angle);
     delay(500);
 }

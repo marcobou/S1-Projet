@@ -76,7 +76,7 @@
 #define MAX_DETECTION 12                // Maximum number of detection that it takes for the robot to decide that he did NOT detect the object.
 #define DETECTION_TURN_SPEED 0.2
 #define WALL_DISTANCE 88
-#define MAX_DISTANCE 30
+#define MAX_DISTANCE 50
 #define DISTANCE_WHEEL_TO_SONAR 13
 
 // ServoMotor
