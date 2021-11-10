@@ -83,9 +83,9 @@ void loop() {
         sw = digitalRead(28);
         delay(1);
     }
-
-    //detect_line(0.0, false, true, false);
-    //detect_line(0.0, true, false, false);
+delay(1);
+    detect_line(0.0, false, true, false);
+    /*detect_line(0.0, true, false, false);
 
     int color = findColor(readColorOnce());
 
@@ -96,7 +96,7 @@ void loop() {
 
     detect_line(0.0, false, false, false);
     
-    turn_off_del_all();
+    turn_off_del_all();*/
 }
 
 /**
@@ -555,8 +555,8 @@ void turn_to_central_sensor(int direction)
 {
     bool turn_right = direction == RIGHT;
 
-    MOTOR_SetSpeed(LEFT, turn_right ? LINE_CORRECTION_SPEED : 0); 
-    MOTOR_SetSpeed(RIGHT, turn_right ? 0 : LINE_CORRECTION_SPEED);
+    MOTOR_SetSpeed(LEFT, turn_right ? LINE_CORRECTION_SPEED : COUNTER_LINE_CORRECTION); 
+    MOTOR_SetSpeed(RIGHT, turn_right ? COUNTER_LINE_CORRECTION : LINE_CORRECTION_SPEED);
 
     int detect_value = 0;
 
@@ -607,7 +607,7 @@ void detect_line(float distance, bool get_ball, bool detect_whistle, bool search
         if (detect_whistle && detect5khz())
         {
             stop_motors();
-
+            delay(500);
             detect_line(0.0, false, false, true);
 
             break;
@@ -674,7 +674,7 @@ void bring_ball(int color)
     {
         turn(-90);
         forward(BALL_TO_TURNING_POINT);
-        turn(90);
+        turn(92);
     }
     else if (color == YELLOW)
     {
@@ -689,6 +689,14 @@ void bring_ball(int color)
 
     delay(1000);
     move_arm(180);
+
+//
+    MOTOR_SetSpeed(LEFT,-0.3);
+    MOTOR_SetSpeed(RIGHT,-0.3);
+    delay(1000);
+    MOTOR_SetSpeed(LEFT,0);
+    MOTOR_SetSpeed(RIGHT,0);
+//
 
     turn(180);
     forward(distance_forward);
@@ -706,8 +714,8 @@ void bring_ball(int color)
         turn(-90);
     }
 
-    forward(COLOR_TO_BALL + TRACK_TO_COLOR);
-    turn(-90);
+    forward(COLOR_TO_BALL + TRACK_TO_COLOR - CORRECTION_FOR_BACKWARDS);
+    turn(-40);
 }
 
 /**

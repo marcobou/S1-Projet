@@ -50,6 +50,7 @@
 #define BASE_TURN_SPEED 0.3             // Base speed of the robot when turning
 #define CORRECTION_FACTOR 0.0006        // Correction factor for the PID
 
+
 // PIN numbers for the DEL, 50-51-52 are already taken by ROBUS
 #define RED_DEL_PIN 53
 #define BLUE_DEL_PIN 48
@@ -67,12 +68,13 @@
 // === LINE DETECTION ===
 #define LINE_PIN A7
 #define LINE_DETECTION_SPEED 0.4
-#define LINE_CORRECTION_SPEED 0.2
+#define LINE_CORRECTION_SPEED 0.4
+#define COUNTER_LINE_CORRECTION 0.1
 
 // === OBJECT DETECTION ===
 #define SONAR_ID 0
 #define MARGIN_ERROR_DISTANCE 0.05
-#define MIN_DETECTION 4                 // Mininum number of detection that it takes for the robot to decide that he detected the object.
+#define MIN_DETECTION 3                 // Mininum number of detection that it takes for the robot to decide that he detected the object.
 #define MAX_DETECTION 12                // Maximum number of detection that it takes for the robot to decide that he did NOT detect the object.
 #define DETECTION_TURN_SPEED 0.2
 #define WALL_DISTANCE 88
@@ -84,7 +86,8 @@
 #define ARM_LENGTH 15
 
 // Distances
-#define TRACK_TO_COLOR 45
+#define TRACK_TO_COLOR 30
 #define COLOR_TO_BALL 37
 #define BALL_TO_ZONE 190
-#define BALL_TO_TURNING_POINT 30
+#define BALL_TO_TURNING_POINT 25
+#define CORRECTION_FOR_BACKWARDS 25
