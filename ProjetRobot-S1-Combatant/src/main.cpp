@@ -49,6 +49,7 @@ bool detect5khz();
 void bring_ball(int color_no);
 void move_arm(int angle);
 void turn_on_del_depending_color(int color);
+void turn_to_central_sensor(int direction);
 
 void setup() 
 {
@@ -83,8 +84,8 @@ void loop() {
         delay(1);
     }
 
-    detect_line(0.0, false, false, true);
-    /*detect_line(0.0, true, false, false);
+    //detect_line(0.0, false, true, false);
+    //detect_line(0.0, true, false, false);
 
     int color = findColor(readColorOnce());
 
@@ -95,7 +96,7 @@ void loop() {
 
     detect_line(0.0, false, false, false);
     
-    turn_off_del_all();*/
+    turn_off_del_all();
 }
 
 /**
@@ -443,125 +444,6 @@ float get_average(float arr[], int size)
 }
 
 /**
- * Function that makes the robot seek an object. It will try to detect an object and go towards it and then return
- * to its initial position. If it fails to detect the object, it will continue to move while following the path
- * until it finds it.
- * 
- * @param[in] max_distance The maximum distance, in cm, at which we expect to find the object.
- */
-/*void seek_object(float max_distance)
-{
-    while(true)
-    {
-        float obj_distance = detect_object(max_distance);
-
-        if (obj_distance == 0.0)
-        {
-            turn(180);
-
-            detect_line(40.0, false, false);
-        }
-        else
-        {
-            turn_on_del(GREEN_DEL_PIN);
-            forward(obj_distance);
-            delay(500);
-            turn(180);
-            delay(500);
-            forward(obj_distance);
-            turn_off_del_all();
-
-            break;
-        }
-    }
-}*/
-
-/**
- * Function to detect an object and get how far away it is.
- * 
- * @param[in] max_distance The maximum distance, in cm, at which we expect to find the object.
- * @param[out] obj_distance The distance between the robot and the object, in cm.
- */
-/* float detect_object(float max_distance)
-{
-    int nb_detection = 0;
-    // Array containing the previous detected values that we want to consider.
-    float last_distances [MAX_DETECTION] = {};
-    long nbPulses = 0;
-    float detection_distance = 0.0f;
-
-    ENCODER_Reset(RIGHT);
-    ENCODER_Reset(LEFT); 
-
-    float convert = abs(180.0f / 360 * PULSES_BY_CIRCLE);
-
-    MOTOR_SetSpeed(LEFT, DETECTION_TURN_SPEED);
-    MOTOR_SetSpeed(RIGHT, -DETECTION_TURN_SPEED);
-
-    while (true)
-    {
-        // Delay of 100ms for the sonar, this is recommended by the doc.
-        delay(100);
-        nbPulses = ENCODER_Read(LEFT);
-
-        if (((convert - 100) / 2) < nbPulses)
-        {
-            // Turn until the robot does a 180, then stops. Will happen if the robot didn't detect any
-            // object, will then return 0 for the distance.
-
-            stop_action();
-            return 0.0f;
-        }
-
-        float obj_distance = SONAR_GetRange(SONAR_ID);
-        // The average of the previous detections.
-        float last_distances_average = get_average(last_distances, MAX_DETECTION);
-
-        if (obj_distance <= max_distance)
-        {
-            // If we are detecting something inside of the maximum distance range
-
-            // Calculate the range in which the object's distance must be. The range is the average of the
-            // previous distances with a margin of error.
-            float max_distance_range = last_distances_average * (1.0 + MARGIN_ERROR_DISTANCE);
-            float min_distance_range = last_distances_average * (1.0 - MARGIN_ERROR_DISTANCE);
-
-            if ((nb_detection < MAX_DETECTION && obj_distance <= max_distance_range && obj_distance >= min_distance_range) ||
-                (nb_detection < MAX_DETECTION && last_distances_average == 0.0))
-            {
-                last_distances[nb_detection] = obj_distance;
-                nb_detection++;
-            }
-        }
-        else
-        {
-            if (nb_detection >= MIN_DETECTION && nb_detection <= MAX_DETECTION)
-            {
-                // If the first detected object was detected long enough, but not too long, we will return the distance
-                // from the robot to the object and apply a turn to the left to the robot to correct the fact that he
-                // overshot the object.
-
-                stop_action();
-
-                turn(-30);
-
-                // The distance returned by the sonar is not enough to get to the object, so we add a certain distance to it.
-                // Might be a good idea to find another way than to hardcode the value.
-                return last_distances_average + 20;
-            }
-
-            nb_detection = 0;
-
-            // "Clear" the array by replacing all of its value by 0.
-            for (int i = 0; i < MAX_DETECTION; i++)
-            {
-                last_distances[i] = 0;
-            }
-        }
-    }
-} */
-
-/**
  * Function that makes the robot hit an object.
  * 
  * @param[in] obj_distance The distance between the robot and the object.
@@ -569,21 +451,13 @@ float get_average(float arr[], int size)
 void hit_object(float obj_distance)
 {
     stop_action();
+
+    turn(90);
+    forward(obj_distance);
+    turn(180);
+    forward(obj_distance);
     
-    if (obj_distance < ARM_LENGTH)
-    {
-        turn(120);
-        delay(100);
-        turn(-120);
-    }
-    else
-    {
-        turn(90);
-        forward(obj_distance);
-        turn(180);
-        forward(obj_distance);
-        turn(90);
-    }
+    turn_to_central_sensor(RIGHT);
 
     stop_action();
 }
@@ -746,7 +620,7 @@ void detect_line(float distance, bool get_ball, bool detect_whistle, bool search
 
             hit_object(get_average(last_distances, MIN_DETECTION + 1));
 
-            turn_on_del(GREEN_DEL_PIN);
+            turn_off_del(GREEN_DEL_PIN);
 
             break;
         }
@@ -809,13 +683,15 @@ void bring_ball(int color)
         turn(-90);
     }
 
-    forward(BALL_TO_ZONE);
+    float distance_forward = color == RED ? BALL_TO_ZONE + WHEEL_SIZE_CM : BALL_TO_ZONE;
+
+    forward(distance_forward);
 
     delay(1000);
     move_arm(180);
 
     turn(180);
-    forward(BALL_TO_ZONE);
+    forward(distance_forward);
 
     if (color == BLUE)
     {

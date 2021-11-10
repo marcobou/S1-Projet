@@ -48,7 +48,7 @@
  
 #define BASE_SPEED 0.2                  // Base speed of the robot when going forward
 #define BASE_TURN_SPEED 0.3             // Base speed of the robot when turning
-#define CORRECTION_FACTOR 0.0004        // Correction factor for the PID
+#define CORRECTION_FACTOR 0.0006        // Correction factor for the PID
 
 // PIN numbers for the DEL, 50-51-52 are already taken by ROBUS
 #define RED_DEL_PIN 53
@@ -81,10 +81,10 @@
 
 // ServoMotor
 #define SERVO_MOTOR_ID 0
-#define ARM_LENGTH 25
+#define ARM_LENGTH 15
 
 // Distances
 #define TRACK_TO_COLOR 45
 #define COLOR_TO_BALL 37
-#define BALL_TO_ZONE 180
+#define BALL_TO_ZONE 190
 #define BALL_TO_TURNING_POINT 30
