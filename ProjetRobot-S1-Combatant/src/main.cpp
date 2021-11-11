@@ -50,6 +50,7 @@ void bring_ball(int color_no);
 void move_arm(int angle);
 void turn_on_del_depending_color(int color);
 void turn_to_central_sensor(int direction);
+void move_to_line();
 
 void setup() 
 {
@@ -83,9 +84,11 @@ void loop() {
         sw = digitalRead(28);
         delay(1);
     }
-delay(1);
+
     detect_line(0.0, false, true, false);
-    /*detect_line(0.0, true, false, false);
+    detect_line(0.0, true, false, false);
+
+    delay(500);
 
     int color = findColor(readColorOnce());
 
@@ -96,7 +99,7 @@ delay(1);
 
     detect_line(0.0, false, false, false);
     
-    turn_off_del_all();*/
+    turn_off_del_all();
 }
 
 /**
@@ -454,8 +457,12 @@ void hit_object(float obj_distance)
 
     turn(90);
     forward(obj_distance);
+
     turn(180);
-    forward(obj_distance);
+    turn(180);
+    turn(180);
+
+    forward(obj_distance - 5);
     
     turn_to_central_sensor(RIGHT);
 
@@ -546,6 +553,20 @@ void reset_encoders()
     ENCODER_Reset(RIGHT);
 }
 
+void move_to_line()
+{
+    MOTOR_SetSpeed(LEFT, LINE_DETECTION_SPEED);
+    MOTOR_SetSpeed(RIGHT, LINE_DETECTION_SPEED);
+
+    while(true)
+    {
+        delay(100);
+
+        int detect_value = analogRead(A7);
+
+    }
+}
+
 /**
  * Function that makes the robot turn until the central sensor meets the track's line.
  * 
@@ -618,7 +639,7 @@ void detect_line(float distance, bool get_ball, bool detect_whistle, bool search
         {
             turn_on_del(GREEN_DEL_PIN);
 
-            hit_object(get_average(last_distances, MIN_DETECTION + 1));
+            hit_object(get_average(last_distances, MIN_DETECTION + 1) + 10);
 
             turn_off_del(GREEN_DEL_PIN);
 
@@ -633,7 +654,8 @@ void detect_line(float distance, bool get_ball, bool detect_whistle, bool search
             stop_motors();
 
             turn(-90);
-            detect_line(TRACK_TO_COLOR, false, false, false);
+            detect_line(TRACK_TO_COLOR - 15, false, false, false);
+            forward(15);
 
             break;
         }
@@ -674,13 +696,17 @@ void bring_ball(int color)
     {
         turn(-90);
         forward(BALL_TO_TURNING_POINT);
-        turn(92);
+        turn(93);
     }
     else if (color == YELLOW)
     {
-        turn(90);
+        turn(92);
         forward(BALL_TO_TURNING_POINT);
-        turn(-90);
+        turn(-91);
+    }
+    else if (color == RED)
+    {
+        turn(3);
     }
 
     float distance_forward = color == RED ? BALL_TO_ZONE + WHEEL_SIZE_CM : BALL_TO_ZONE;
@@ -699,19 +725,25 @@ void bring_ball(int color)
 //
 
     turn(180);
-    forward(distance_forward);
+    forward(BALL_TO_ZONE);
 
     if (color == BLUE)
     {
         turn(-90);
-        forward(BALL_TO_TURNING_POINT);
+        forward(BALL_TO_TURNING_POINT + 30);
         turn(90);
     }
     else if (color == YELLOW)
     {
         turn(90);
-        forward(BALL_TO_TURNING_POINT);
-        turn(-90);
+        forward(BALL_TO_TURNING_POINT - 20);
+        turn(-92);
+    }
+    else if (color == RED)
+    {
+        turn(-45);
+        forward(WHEEL_SIZE_CM);
+        turn(45);
     }
 
     forward(COLOR_TO_BALL + TRACK_TO_COLOR - CORRECTION_FOR_BACKWARDS);

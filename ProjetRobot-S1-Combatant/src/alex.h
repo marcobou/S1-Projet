@@ -74,7 +74,7 @@
 // === OBJECT DETECTION ===
 #define SONAR_ID 0
 #define MARGIN_ERROR_DISTANCE 0.05
-#define MIN_DETECTION 3                 // Mininum number of detection that it takes for the robot to decide that he detected the object.
+#define MIN_DETECTION 2                 // Mininum number of detection that it takes for the robot to decide that he detected the object.
 #define MAX_DETECTION 12                // Maximum number of detection that it takes for the robot to decide that he did NOT detect the object.
 #define DETECTION_TURN_SPEED 0.2
 #define WALL_DISTANCE 88
@@ -86,8 +86,8 @@
 #define ARM_LENGTH 15
 
 // Distances
-#define TRACK_TO_COLOR 30
+#define TRACK_TO_COLOR 40
 #define COLOR_TO_BALL 37
-#define BALL_TO_ZONE 190
+#define BALL_TO_ZONE 200
 #define BALL_TO_TURNING_POINT 25
-#define CORRECTION_FOR_BACKWARDS 25
+#define CORRECTION_FOR_BACKWARDS 40
