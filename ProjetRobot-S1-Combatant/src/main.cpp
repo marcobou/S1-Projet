@@ -37,8 +37,6 @@ void turn_off_del_all();
 void initColorSensor();
 CustomColor readColorOnce();
 int findColor(CustomColor);
-//float detect_object(float max_distance);
-//void seek_object(float max_distance);
 void hit_object(float obj_distance);
 bool object_detection(int *nb_detection, float last_distances[]);
 void stop_action();
@@ -50,7 +48,6 @@ void bring_ball(int color_no);
 void move_arm(int angle);
 void turn_on_del_depending_color(int color);
 void turn_to_central_sensor(int direction);
-void move_to_line();
 
 void setup() 
 {
@@ -65,6 +62,10 @@ void setup()
 
     SERVO_Enable(SERVO_MOTOR_ID);
     delay(100);
+    move_arm(180);
+    move_arm(150);
+    move_arm(180);
+    move_arm(150);
     move_arm(180);
     SERVO_Disable(SERVO_MOTOR_ID);
 
@@ -553,20 +554,6 @@ void reset_encoders()
     ENCODER_Reset(RIGHT);
 }
 
-void move_to_line()
-{
-    MOTOR_SetSpeed(LEFT, LINE_DETECTION_SPEED);
-    MOTOR_SetSpeed(RIGHT, LINE_DETECTION_SPEED);
-
-    while(true)
-    {
-        delay(100);
-
-        int detect_value = analogRead(A7);
-
-    }
-}
-
 /**
  * Function that makes the robot turn until the central sensor meets the track's line.
  * 
@@ -641,7 +628,7 @@ void detect_line(float distance, bool get_ball, bool detect_whistle, bool search
 
             hit_object(get_average(last_distances, MIN_DETECTION + 1) + 10);
 
-            turn_off_del(GREEN_DEL_PIN);
+            turn_off_del_all();
 
             break;
         }
@@ -736,7 +723,7 @@ void bring_ball(int color)
     else if (color == YELLOW)
     {
         turn(90);
-        forward(BALL_TO_TURNING_POINT - 20);
+        forward(BALL_TO_TURNING_POINT - 10);
         turn(-92);
     }
     else if (color == RED)
