@@ -65,8 +65,6 @@ void setup()
     move_arm(180);
     move_arm(150);
     move_arm(180);
-    move_arm(150);
-    move_arm(180);
     SERVO_Disable(SERVO_MOTOR_ID);
 
     turn_off_del_all();
