@@ -1,43 +1,30 @@
 #include <Arduino.h>
-#include <LibRobus.h>
 #include <math.h>
+#include <Wire.h>
+#include "Adafruit_TCS34725.h"
+#include "alex.h"
+#include <LibRobus.h>
 
-// === MOTORS ===
-#define PULSES_BY_TURN 3200             // Number of ticks/pulses that the encoders read each time the wheels finish a turn
-#define PULSES_BY_CIRCLE 7979 * 2
-#define WHEEL_SIZE_ROBOTA 7.63
-#define WHEEL_SIZE_ROBOTB 7.55
+class CustomColor
+{
+    private:
+    /* data */
+    public:
+        uint16_t Red, Green, Blue; // Valeurs relatives des couleurs
 
-// === FORWARD ===
-#define BASE_SPEED 0.2                  // Base speed of the robot when going forward
-#define MIN_SPEED 0.2
-#define MAX_SPEED 0.9
-#define CORRECTION_FACTOR 0.0004        // Correction factor for the PID
+        // constructeur
+        CustomColor(int r, int g, int b)
+        {
+            Red = r;
+            Green = g;
+            Blue = b;
+        }
+        ~CustomColor()
+        {
+        }
+};
 
-// === TURN ===
-#define BASE_TURN_SPEED 0.3             // Base speed of the robot when turning
-
-// === BUMPERS ===
-#define FRONT_BUMPER_PIN 28
-
-// === DEL ===
-// PIN numbers for the DEL, 50-51-52 are already taken by ROBUS
-#define RED_DEL_PIN 53
-#define BLUE_DEL_PIN 48
-#define YELLOW_DEL_PIN 47
-#define GREEN_DEL_PIN 49
-
-// === LINE DETECTION ===
-#define LINE_PIN A7
-#define LINE_DETECTION_SPEED 0.3
-
-// === OBJECT DETECTION ===
-#define SONAR_ID 0
-#define MARGIN_ERROR_DISTANCE 0.05
-#define MIN_DETECTION 4                 // Mininum number of detection that it takes for the robot to decide that he detected the object.
-#define MAX_DETECTION 12                // Maximum number of detection that it takes for the robot to decide that he did NOT detect the object.
-#define DETECTION_TURN_SPEED 0.2
-#define WALL_DISTANCE 88
+Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);
 
 const float WHEEL_SIZE_CM = WHEEL_SIZE_ROBOTA * 3.141592;
 
@@ -46,11 +33,16 @@ void turn (float angle);
 void pin_setup();
 void turn_on_del(int del_pin);
 void turn_off_del(int del_pin);
-void turn_off_del_all();
-float detect_object(float max_distance);
-void seek_object(float max_distance);
+void init_color_sensor();
+CustomColor read_color_once();
+int find_color(CustomColor);
+bool object_detection(int *nb_detection, float last_distances[]);
 void stop_action();
-void detect_line(float distance, bool get_ball);
+void stop_motors();
+void reset_encoders();
+void detect_line(float distance);
+float get_average(float arr[], int size);
+void turn_to_central_sensor(int direction);
 
 void setup()
 { 
@@ -58,11 +50,14 @@ void setup()
 
     BoardInit(); 
 
-    MOTOR_SetSpeed(LEFT, 0);
-    MOTOR_SetSpeed(RIGHT, 0);
+    stop_motors();
+    reset_encoders();
 
     pin_setup();
-    turn_off_del_all();
+
+    init_color_sensor();
+
+    delay(500);
 
     Serial.println("Start"); 
 } 
@@ -85,8 +80,7 @@ void loop()
 void turn (float angle){
     long nbPulses = 0;
 
-    ENCODER_Reset(RIGHT);
-    ENCODER_Reset(LEFT); 
+    reset_encoders();
 
     float convert = abs(angle /360 * PULSES_BY_CIRCLE);
 
@@ -134,8 +128,7 @@ void forward(float distance)
 
     float nb_wheel_turn = 1.0f * distance / WHEEL_SIZE_CM;
 
-    ENCODER_Reset(RIGHT);
-    ENCODER_Reset(LEFT); 
+    reset_encoders(); 
     
     // Ratio used to adjust the speed of the two wheels.
     float speed_ratio = 0;
@@ -144,7 +137,7 @@ void forward(float distance)
     long pulses_left = 0;
     long pulses_right;
 
-    MOTOR_SetSpeed(LEFT, (BASE_SPEED)); 
+    MOTOR_SetSpeed(LEFT, BASE_SPEED); 
     MOTOR_SetSpeed(RIGHT, BASE_SPEED);
 
     float added_speed = 0.0001f;
@@ -190,6 +183,111 @@ void forward(float distance)
     stop_action();
 }
 
+/*
+Init anything related to the color sensor
+*/
+void init_color_sensor()
+{
+    pinMode(COLOR_SENSOR_PIN, OUTPUT);
+    digitalWrite(13, 1);
+
+    // try to connect to the color sensor
+    while (!tcs.begin())
+    {
+        Serial.println("No TCS34725 found ... check your connections");
+        // cut power to the sensor and turn it back on until it works
+        digitalWrite(COLOR_SENSOR_PIN, 0);
+        delay(1000);
+        digitalWrite(COLOR_SENSOR_PIN, 1);
+    } 
+}
+/*
+This function returns a CustomColor objet with the Red, Green and Blue relative
+values of what is under the sensor.
+*/
+CustomColor read_color_once()
+{
+    CustomColor color = CustomColor(0,0,0);
+
+    // variables used in the calculations and readings
+    uint32_t sum;
+    uint16_t clear;
+    float r, g, b;
+
+    tcs.setInterrupt(false);      // turn on LED
+
+    delay(70);  // takes 50ms to read
+
+    tcs.getRawData(&color.Red, &color.Green, &color.Blue, &clear); // get data from sensor
+
+    tcs.setInterrupt(true);  // turn off LED
+
+    sum = clear;
+
+    // put values as relatives for easier comparing
+    r = color.Red; r /= sum; 
+    g = color.Green; g /= sum;
+    b = color.Blue; b /= sum;
+    r *= 256; g *= 256; b *= 256;
+
+    // put values in int format
+    color.Red = (int)r;
+    color.Green = (int)g;
+    color.Blue = (int)b;
+
+    return color;
+}
+
+/*
+This function takes in a color object and compairs the RGB values to presets
+for each possible colors. An int with a value relative to the color that fit the
+RGB values is returned.
+*/
+int find_color(CustomColor color)
+{
+    int color_match = INVALID;
+    
+    // color is red
+    if((color.Red >= RED_MIN_RED && color.Red <= RED_MAX_RED) &&
+    (color.Green >= RED_MIN_GREEN && color.Green <= RED_MAX_GREEN) &&
+    (color.Blue >= RED_MIN_BLUE && color.Blue <= RED_MAX_BLUE))
+    {
+        Serial.println("Color is RED");
+        color_match = RED;
+    }
+    // color is green
+    else if((color.Red >= GREEN_MIN_RED && color.Red <= GREEN_MAX_RED) &&
+    (color.Green >= GREEN_MIN_GREEN && color.Green <= GREEN_MAX_GREEN) &&
+    (color.Blue >= GREEN_MIN_BLUE && color.Blue <= GREEN_MAX_BLUE))
+    {
+        Serial.println("Color is GREEN");
+        color_match = GREEN;
+    }
+    // color is blue
+    else if((color.Red >= BLUE_MIN_RED && color.Red <= BLUE_MAX_RED) &&
+    (color.Green >= BLUE_MIN_GREEN && color.Green <= BLUE_MAX_GREEN) &&
+    (color.Blue >= BLUE_MIN_BLUE && color.Blue <= BLUE_MAX_BLUE))
+    {
+        Serial.println("Color is BLUE");
+        color_match = BLUE;
+    }
+    // color is yellow
+    else if((color.Red >= YELLOW_MIN_RED && color.Red <= YELLOW_MAX_RED) &&
+    (color.Green >= YELLOW_MIN_GREEN && color.Green <= YELLOW_MAX_GREEN) &&
+    (color.Blue >= YELLOW_MIN_BLUE && color.Blue <= YELLOW_MAX_BLUE))
+    {
+        Serial.println("Color is YELLOW");
+        color_match = YELLOW;
+    }
+    // color is unknown
+    else
+    {
+        Serial.println("Color is UNKNOWN");
+    }
+    Serial.println();
+    return color_match;
+} 
+
 /**
  * Function that configure the different pins.
  */
@@ -199,12 +297,6 @@ void pin_setup()
 
     //Vout SENSOR LIGNE
     pinMode(LINE_PIN, INPUT);
-
-    // DEL
-    pinMode(RED_DEL_PIN, OUTPUT);
-    pinMode(BLUE_DEL_PIN, OUTPUT);
-    pinMode(YELLOW_DEL_PIN, OUTPUT);
-    pinMode(GREEN_DEL_PIN, OUTPUT);
 }
 
 /**
@@ -228,14 +320,58 @@ void turn_off_del(int del_pin)
 }
 
 /**
- * Function to turn off all the DEL.
+ * Function that makes the robot detect an object while it moves and/or follows the track.
+ * 
+ * @param[in] nb_detection The number of times the robot detected the same object. Must pass a pointer.
+ * @param[in] last_distances An array containing all the last mesured distances between the robot and the object.
+ * @param[out] object_is_detected True if the object was detected.
  */
-void turn_off_del_all()
+bool object_detection(int *nb_detection, float last_distances[])
 {
-    digitalWrite(RED_DEL_PIN, LOW);
-    digitalWrite(BLUE_DEL_PIN, LOW);
-    digitalWrite(YELLOW_DEL_PIN, LOW);
-    digitalWrite(GREEN_DEL_PIN, LOW);
+    delay(100);
+    float obj_distance = SONAR_GetRange(SONAR_ID);
+    float last_distances_average = get_average(last_distances, MIN_DETECTION + 1);
+
+    if (obj_distance <= MAX_DISTANCE && obj_distance != 0.0)
+    {
+        float max_distance_range = last_distances_average * (1.0 + MARGIN_ERROR_DISTANCE);
+        float min_distance_range = last_distances_average * (1.0 - MARGIN_ERROR_DISTANCE);
+
+        if ((obj_distance <= max_distance_range && obj_distance >= min_distance_range) ||
+            last_distances_average == 0.0)
+        {
+            /*
+                First condition block: checks that the max detection number is not exceeded and that the distance
+                    between the object and the robot is between a certain range of the previous distances.
+                
+                OR
+
+                Second condition block: checks that the max detection number is not exceeded and that the average
+                    of the previous distances is 0 (will happen if there is no distance in the array)
+            */
+            last_distances[*nb_detection] = obj_distance;
+            (*nb_detection)++;
+
+            Serial.println(*nb_detection);
+
+            if (*nb_detection >= MIN_DETECTION)
+            {             
+                return true;
+            }
+        }
+    }
+    else
+    {
+        *nb_detection = 0;
+
+        // "Clear" the array by replacing all of its value by 0.
+        for (int i = 0; i < MIN_DETECTION + 1; i++)
+        {
+            last_distances[i] = 0;
+        }
+    }
+
+    return false;
 }
 
 /**
@@ -274,139 +410,55 @@ float get_average(float arr[], int size)
 }
 
 /**
- * Function that makes the robot seek an object. It will try to detect an object and go towards it and then return
- * to its initial position. If it fails to detect the object, it will continue to move while following the path
- * until it finds it.
- * 
- * @param[in] max_distance The maximum distance, in cm, at which we expect to find the object.
- */
-void seek_object(float max_distance)
+ * Function that must be called at the end of each action to stop the motors and reset the encoders.
+ */ 
+void stop_action()
 {
-    while(true)
-    {
-        float obj_distance = detect_object(max_distance);
-
-        if (obj_distance == 0.0)
-        {
-            turn(180);
-
-            detect_line(40.0, false);
-        }
-        else
-        {
-            forward(obj_distance);
-            delay(500);
-            turn(180);
-            delay(500);
-            forward(obj_distance);
-
-            break;
-        }
-    }
+    stop_motors();
+    reset_encoders(); 
+    _delay_us(10);
 }
 
 /**
- * Function to detect an object and get how far away it is.
- * 
- * @param[in] max_distance The maximum distance, in cm, at which we expect to find the object.
- * @param[out] obj_distance The distance between the robot and the object, in cm.
- */
-float detect_object(float max_distance)
+ * Function that only stops the motors.
+ */ 
+void stop_motors()
 {
-    int nb_detection = 0;
-    // Array containing the previous detected values that we want to consider.
-    float last_distances [MAX_DETECTION] = {};
-    long nbPulses = 0;
-    float detection_distance = 0.0f;
-
-    ENCODER_Reset(RIGHT);
-    ENCODER_Reset(LEFT); 
-
-    float convert = abs(180.0f / 360 * PULSES_BY_CIRCLE);
-
-    MOTOR_SetSpeed(LEFT, DETECTION_TURN_SPEED);
-    MOTOR_SetSpeed(RIGHT, -DETECTION_TURN_SPEED);
-
-    while (true)
-    {
-        // Delay of 100ms for the sonar, this is recommended by the doc.
-        delay(100);
-        nbPulses = ENCODER_Read(LEFT);
-
-        if (((convert - 100) / 2) < nbPulses)
-        {
-            // Turn until the robot does a 180, then stops. Will happen if the robot didn't detect any
-            // object, will then return 0 for the distance.
-
-            stop_action();
-            return 0.0f;
-        }
-
-        float obj_distance = SONAR_GetRange(SONAR_ID);
-        // The average of the previous detections.
-        float last_distances_average = get_average(last_distances, MAX_DETECTION);
-
-        if (obj_distance <= max_distance)
-        {
-            // If we are detecting something inside of the maximum distance range
-
-            // Calculate the range in which the object's distance must be. The range is the average of the
-            // previous distances with a margin of error.
-            float max_distance_range = last_distances_average * (1.0 + MARGIN_ERROR_DISTANCE);
-            float min_distance_range = last_distances_average * (1.0 - MARGIN_ERROR_DISTANCE);
-
-            if ((nb_detection < MAX_DETECTION && obj_distance <= max_distance_range && obj_distance >= min_distance_range) ||
-                (nb_detection < MAX_DETECTION && last_distances_average == 0.0))
-            {
-                /*
-                    First condition block: checks that the max detection number is not exceeded and that the distance
-                        between the object and the robot is between a certain range of the previous distances.
-                    
-                    OR
-
-                    Second condition block: checks that the max detection number is not exceeded and that the average
-                        of the previous distances is 0 (will happen if there is no distance in the array)
-                */
-                last_distances[nb_detection] = obj_distance;
-                nb_detection++;
-            }
-        }
-        else
-        {
-            if (nb_detection >= MIN_DETECTION && nb_detection <= MAX_DETECTION)
-            {
-                /*If the first detected object was detected long enough, but not too long, we will return the distance
-                from the robot to the object and apply a turn to the left to the robot to correct the fact that he
-                overshot the object.*/
-
-                stop_action();
-
-                turn(-30);
-
-                // The distance returned by the sonar is not enough to get to the object, so we add a certain distance to it.
-                // Might be a good idea to find another way than to hardcode the value.
-                return last_distances_average + 20;
-            }
-
-            nb_detection = 0;
-
-            // "Clear" the array by replacing all of its value by 0.
-            for (int i = 0; i < MAX_DETECTION; i++)
-            {
-                last_distances[i] = 0;
-            }
-        }
-    }
-}
-
-void stop_action()
-{
-    // Stop the motors
     MOTOR_SetSpeed(LEFT, 0); 
     MOTOR_SetSpeed(RIGHT, 0); 
+}
+
+/**
+ * Function that resets both encoders.
+ */ 
+void reset_encoders()
+{
     ENCODER_Reset(LEFT);
     ENCODER_Reset(RIGHT);
-    _delay_us(10);
+}
+
+/**
+ * Function that makes the robot turn until the central sensor meets the track's line.
+ * 
+ * @param[in] direction The direction in which the robot must turn. 0 for left and 1 for right.
+ */ 
+void turn_to_central_sensor(int direction)
+{
+    bool turn_right = direction == RIGHT;
+
+    MOTOR_SetSpeed(LEFT, turn_right ? LINE_CORRECTION_SPEED : COUNTER_LINE_CORRECTION); 
+    MOTOR_SetSpeed(RIGHT, turn_right ? COUNTER_LINE_CORRECTION : LINE_CORRECTION_SPEED);
+
+    int detect_value = 0;
+
+    while(detect_value > 148 + 3 || detect_value < 148 - 3)
+    {
+        delay(1);
+        detect_value = analogRead(A7);
+    }
+
+    MOTOR_SetSpeed(LEFT, LINE_DETECTION_SPEED); 
+    MOTOR_SetSpeed(RIGHT, LINE_DETECTION_SPEED);
 }
 
 /** 
@@ -414,12 +466,10 @@ void stop_action()
  * 
  * @param[in] distance The distance for which the robot must follow the line. 
  *      If distance is equal to 0 the robot will follow the line indefinetly.
- * @param[in] get_ball Tell the robot if he must exit the track to get the ball.
  */ 
-void detect_line(float distance, bool get_ball)
+void detect_line(float distance)
 {
-    ENCODER_Reset(LEFT);
-    ENCODER_Reset(RIGHT);
+    reset_encoders();
 
     MOTOR_SetSpeed(LEFT, LINE_DETECTION_SPEED); 
     MOTOR_SetSpeed(RIGHT, LINE_DETECTION_SPEED);
@@ -431,55 +481,28 @@ void detect_line(float distance, bool get_ball)
     {
         delay(10);
 
-        if (distance != 0.0 && !get_ball && ENCODER_Read(LEFT) >= nb_pulses)
+        // If the robot must follow the line only for a specific distance.
+        if (distance != 0.0 && ENCODER_Read(LEFT) >= nb_pulses)
         {
             break;
         }
 
         int detect_value = analogRead(A7);
 
-        if (get_ball && detect_value == 733)
-        {
-            MOTOR_SetSpeed(LEFT, 0);
-            MOTOR_SetSpeed(RIGHT, 0);
-
-            turn(-90);
-            forward(50);
-
-            break;
-        }
+        // === Corrections ===
 
         if (detect_value == 733 || detect_value == 441 || detect_value == 1021)
         {
             continue;
         }
 
-        if(detect_value < 291+3 && detect_value > 291-3) //detection par SENSOR_DROITE
+        if(detect_value < 291 + 3 && detect_value > 291 - 3) //detection par SENSOR_DROITE
         {
-            MOTOR_SetSpeed(LEFT, BASE_TURN_SPEED); 
-            MOTOR_SetSpeed(RIGHT, 0);
-
-            while(detect_value > 148 + 3 || detect_value < 148 - 3)
-            {
-                delay(1);
-                detect_value = analogRead(A7);
-            }
-            MOTOR_SetSpeed(LEFT, BASE_SPEED); 
-            MOTOR_SetSpeed(RIGHT, BASE_SPEED);
+            turn_to_central_sensor(RIGHT);
         }
-        else if(detect_value < 583+3 && detect_value > 583-3) //detection par SENSOR_GAUCHE 
+        else if(detect_value < 583 + 3 && detect_value > 583 - 3) //detection par SENSOR_GAUCHE 
         {
-            MOTOR_SetSpeed(LEFT, 0); 
-            MOTOR_SetSpeed(RIGHT, BASE_TURN_SPEED);
-
-            while(detect_value > 148 + 3 || detect_value < 148 - 3)
-            {
-                delay(1);
-                detect_value = analogRead(A7);
-            }
-
-            MOTOR_SetSpeed(LEFT, BASE_SPEED); 
-            MOTOR_SetSpeed(RIGHT, BASE_SPEED);
+            turn_to_central_sensor(LEFT);
         }
     }
 
