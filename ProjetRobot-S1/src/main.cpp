@@ -4,6 +4,8 @@
 #include "Adafruit_TCS34725.h"
 #include "alex.h"
 #include <LibRobus.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
 
 class CustomColor
 {
@@ -43,33 +45,73 @@ void reset_encoders();
 void detect_line(float distance);
 float get_average(float arr[], int size);
 void turn_to_central_sensor(int direction);
+void test_lcd();
 
 void setup()
 { 
     Serial.begin(9600); 
 
-    BoardInit(); 
+    /*BoardInit(); 
 
     stop_motors();
     reset_encoders();
 
     pin_setup();
 
-    init_color_sensor();
+    init_color_sensor();*/
 
-    delay(500);
+    /*int rs = 12, en = 11, d4 = 5, d5 = 4, d6 = 3, d7 = 2;
+    LiquidCrystal lcd = LiquidCrystal(rs, en, d4, d5, d6, d7);
 
-    Serial.println("Start"); 
+    // set up the LCD's number of columns and rows:
+    lcd.begin(16, 2);
+    lcd.setCursor(0, 0);
+    // Print a message to the LCD.
+    lcd.print("hello");
+    lcd.setCursor(0, 1);
+    lcd.print("world");*/
+    int buttonPin = 26;
+
+    pinMode(buttonPin, INPUT_PULLUP);
+    
+    while(true)
+    {
+        if(digitalRead(buttonPin) == LOW)
+        {
+            Serial.println("Btn appuyé");
+            delay(2000);
+        }
+    }
+
+    LiquidCrystal_I2C lcd = LiquidCrystal_I2C(0x27, 16, 2);
+
+    lcd.init();                      // initialize the lcd 
+    lcd.backlight();
+
+    lcd.setCursor(0, 0);
+    lcd.print("Hello");
+    lcd.setCursor(0, 1);
+    lcd.print("World");
+
+    delay(5000);
+    lcd.clear();
+
+    Serial.println("Start");
 } 
 
 void loop() 
 {
-    bool sw = 0;
+    /*bool sw = 0;
     while(sw == 0)
     {
         sw = digitalRead(FRONT_BUMPER_PIN);
         delay(1);
-    }
+    }*/
+}
+
+void test_lcd()
+{
+
 }
 
 /**
@@ -77,7 +119,8 @@ void loop()
  * 
  * @param[in] angle The angle at which the robot must turn. A negative value will make it turn to the left.
  */
-void turn (float angle){
+void turn (float angle)
+{
     long nbPulses = 0;
 
     reset_encoders();
