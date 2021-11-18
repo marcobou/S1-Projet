@@ -1,37 +1,64 @@
 #include <Arduino.h>
-#include <LibRobus.h>
 #include <math.h>
+#include <Wire.h>
+#include "Adafruit_TCS34725.h"
+#include "alex.h"
+#include <LibRobus.h>
 
-#define ENCODE_TOUR_ROUE 3200     // Nombre de ticks d'encodeur pour faire un tour
-#define PULSE_PAR_ROND 7979*2
-#define TAILLE_ROUE_PO 9.42477796 // Taille des roues en pouces
-#define TAILLE_ROUE_ROBOTA 7.63
-#define TAILLE_ROUE_ROBOTB 7.55
- 
-#define BASE_SPEED 0.2 
-#define BASE_TURN_SPEED 0.3                 // Vitesse de base
-#define MINUS_BASE_SPEED -0.4           // Vitesse de base negative
-#define QUARTER_BASE_SPEED BASE_SPEED/4 // 1/4 de la vitesse de base pour départs et arrets plus doux
-#define FACTEUR_CORRECTION 0.0004       // Facteur de correction pour le PID
-#define CORRECTION_PAR_TOUR 8           // Nombre de fois que le PID ajuste les valeurs de vitesses par tour
- 
-const float TAILLE_ROUE_CM = TAILLE_ROUE_ROBOTA * 3.141592;
+class CustomColor
+{
+    private:
+    /* data */
+    public:
+        uint16_t Red, Green, Blue; // Valeurs relatives des couleurs
 
-void avance_tour_roue(float nbTour); 
-void avance (float distance);
+        // constructeur
+        CustomColor(int r, int g, int b)
+        {
+            Red = r;
+            Green = g;
+            Blue = b;
+        }
+        ~CustomColor()
+        {
+        }
+};
+
+Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);
+
+const float WHEEL_SIZE_CM = WHEEL_SIZE_ROBOTA * 3.141592;
+
+void forward (float distance);
 void turn (float angle);
+void pin_setup();
+void turn_on_del(int del_pin);
+void turn_off_del(int del_pin);
+void init_color_sensor();
+CustomColor read_color_once();
+int find_color(CustomColor);
+bool object_detection(int *nb_detection, float last_distances[]);
+void stop_action();
+void stop_motors();
+void reset_encoders();
+void detect_line(float distance);
+float get_average(float arr[], int size);
+void turn_to_central_sensor(int direction);
 
-/* 
-Fonction de setup pour initialiser le robot
-*/
 void setup()
 { 
-    // put your setup code here, to run once: 
     Serial.begin(9600); 
+
     BoardInit(); 
-    MOTOR_SetSpeed(LEFT, 0); 
-    MOTOR_SetSpeed(RIGHT, 0); 
-    pinMode(28, INPUT);
+
+    stop_motors();
+    reset_encoders();
+
+    pin_setup();
+
+    init_color_sensor();
+
+    delay(500);
+
     Serial.println("Start"); 
 } 
 
@@ -40,42 +67,26 @@ void loop()
     bool sw = 0;
     while(sw == 0)
     {
-        sw = digitalRead(28);
+        sw = digitalRead(FRONT_BUMPER_PIN);
         delay(1);
     }
-
-    turn(180);
-    delay(1000);
-    turn(90);
-    delay(1000);
-    turn(-90);
-
-    MOTOR_SetSpeed(LEFT, 0);
-    MOTOR_SetSpeed(RIGHT, 0);
-
-    while(1);
 }
 
-void avance (float distance)
-{
-  avance_tour_roue(1.0f * distance / TAILLE_ROUE_CM); 
-}
-
+/**
+ * Function to make the robot turn.
+ * 
+ * @param[in] angle The angle at which the robot must turn. A negative value will make it turn to the left.
+ */
 void turn (float angle){
     long nbPulses = 0;
 
-    // Variables contenant les dernières valeurs d'encodeurs
-    ENCODER_Reset(RIGHT);
-    ENCODER_Reset(LEFT); 
+    reset_encoders();
 
-    float convert = abs(angle /360 * PULSE_PAR_ROND);
-
-    Serial.println(convert);
-    Serial.println(angle);
+    float convert = abs(angle /360 * PULSES_BY_CIRCLE);
 
     if (angle != 180)
     {
-        // angle < 0 = tourner à gauche, angle > 0 = tourner à droite
+        // angle < 0 = turn left, angle > 0 = turn right
         int turn_motor = angle < 0 ? RIGHT : LEFT;
 
         MOTOR_SetSpeed(turn_motor, BASE_TURN_SPEED);
@@ -85,55 +96,53 @@ void turn (float angle){
             _delay_us(10);
             nbPulses = ENCODER_Read(turn_motor);
         }
-
-        MOTOR_SetSpeed(turn_motor, 0);
     }
     else
     {
-        // tourne de 180
+        // make a 180
 
         MOTOR_SetSpeed(LEFT, BASE_TURN_SPEED);
         MOTOR_SetSpeed(RIGHT, -BASE_TURN_SPEED);
 
-        while(((convert - 200) / 2) > nbPulses)
+        while(((convert - 100) / 2) > nbPulses)
         {
             _delay_us(10);
             nbPulses = ENCODER_Read(LEFT);
         }
-
-        MOTOR_SetSpeed(LEFT, 0);
-        MOTOR_SetSpeed(RIGHT, 0);
     }
 
-    _delay_us(10);
+    stop_action();
  }
 
-/*
-Cette fonction prend en entrée un nombre entier et fait tourner les
-roues un nombre de tour égal a ce nombre entier
-*/
-void avance_tour_roue(float nbTour) 
+/**
+ * Function that makes the robot go forward.
+ * 
+ * @param[in] distance The distance in cm for which the robot must go forward.
+ */
+void forward(float distance) 
 { 
-    long nbPulseRight = 0;
-    long nbPulseLeft = 0;
+    if (distance == 0)
+    {
+        return;
+    }
 
-    ENCODER_Reset(RIGHT); // Variables contenant les dernières valeures d'encodeurs
-    ENCODER_Reset(LEFT); 
+    float nb_wheel_turn = 1.0f * distance / WHEEL_SIZE_CM;
+
+    reset_encoders(); 
     
-    float speedRatio = 0; // Ratio utilisé pour ajuster le rapport de vitesse entre les deux roues
+    // Ratio used to adjust the speed of the two wheels.
+    float speed_ratio = 0;
 
-    long pulse_to_do = nbTour * 3200;
+    long pulse_to_do = nb_wheel_turn * PULSES_BY_TURN;
     long pulses_left = 0;
     long pulses_right;
 
-    MOTOR_SetSpeed(LEFT, (BASE_SPEED)); 
+    MOTOR_SetSpeed(LEFT, BASE_SPEED); 
     MOTOR_SetSpeed(RIGHT, BASE_SPEED);
 
     float added_speed = 0.0001f;
     float reduce_speed = added_speed * 1.0f;
     float current_speed = BASE_SPEED;
-    float max_speed = 0.9f;
-    float min_speed = 0.2f;
 
     while(pulses_left < pulse_to_do)
     {
@@ -142,39 +151,360 @@ void avance_tour_roue(float nbTour)
 
         if (pulses_left * 1.0f / pulse_to_do < 0.5f)
         {
-            if (current_speed < max_speed)
+            if (current_speed < MAX_SPEED)
             {
                 current_speed += added_speed;
             }
         }
         else
         {
-            if (current_speed > min_speed)
+            if (current_speed > MIN_SPEED)
             {
                 current_speed -= reduce_speed;
             }
         }
 
-        if(TAILLE_ROUE_CM == TAILLE_ROUE_ROBOTA)
+        if(WHEEL_SIZE_CM == WHEEL_SIZE_ROBOTA)
         {
-            speedRatio = (pulses_right-pulses_left)*FACTEUR_CORRECTION;
-            MOTOR_SetSpeed(LEFT, current_speed + speedRatio); 
+            speed_ratio = (pulses_right - pulses_left) * CORRECTION_FACTOR;
+            MOTOR_SetSpeed(LEFT, current_speed + speed_ratio); 
             MOTOR_SetSpeed(RIGHT, current_speed);
         }
         else
         {
-            speedRatio = (pulses_left-pulses_right)*FACTEUR_CORRECTION;
+            speed_ratio = (pulses_left - pulses_right) * CORRECTION_FACTOR;
             MOTOR_SetSpeed(LEFT, current_speed); 
-            MOTOR_SetSpeed(RIGHT, current_speed + speedRatio);
+            MOTOR_SetSpeed(RIGHT, current_speed + speed_ratio);
         }
 
         _delay_us(100);
     }
  
-    // Stop les moteurs
+    stop_action();
+}
+
+/*
+Init anything related to the color sensor
+*/
+void init_color_sensor()
+{
+    pinMode(COLOR_SENSOR_PIN, OUTPUT);
+    digitalWrite(13, 1);
+
+    // try to connect to the color sensor
+    while (!tcs.begin())
+    {
+        Serial.println("No TCS34725 found ... check your connections");
+        // cut power to the sensor and turn it back on until it works
+        digitalWrite(COLOR_SENSOR_PIN, 0);
+        delay(1000);
+        digitalWrite(COLOR_SENSOR_PIN, 1);
+    } 
+}
+/*
+This function returns a CustomColor objet with the Red, Green and Blue relative
+values of what is under the sensor.
+*/
+CustomColor read_color_once()
+{
+    CustomColor color = CustomColor(0,0,0);
+
+    // variables used in the calculations and readings
+    uint32_t sum;
+    uint16_t clear;
+    float r, g, b;
+
+    tcs.setInterrupt(false);      // turn on LED
+
+    delay(70);  // takes 50ms to read
+
+    tcs.getRawData(&color.Red, &color.Green, &color.Blue, &clear); // get data from sensor
+
+    tcs.setInterrupt(true);  // turn off LED
+
+    sum = clear;
+
+    // put values as relatives for easier comparing
+    r = color.Red; r /= sum; 
+    g = color.Green; g /= sum;
+    b = color.Blue; b /= sum;
+    r *= 256; g *= 256; b *= 256;
+
+    // put values in int format
+    color.Red = (int)r;
+    color.Green = (int)g;
+    color.Blue = (int)b;
+
+    return color;
+}
+
+/*
+This function takes in a color object and compairs the RGB values to presets
+for each possible colors. An int with a value relative to the color that fit the
+RGB values is returned.
+*/
+int find_color(CustomColor color)
+{
+    int color_match = INVALID;
+    
+    // color is red
+    if((color.Red >= RED_MIN_RED && color.Red <= RED_MAX_RED) &&
+    (color.Green >= RED_MIN_GREEN && color.Green <= RED_MAX_GREEN) &&
+    (color.Blue >= RED_MIN_BLUE && color.Blue <= RED_MAX_BLUE))
+    {
+        Serial.println("Color is RED");
+        color_match = RED;
+    }
+    // color is green
+    else if((color.Red >= GREEN_MIN_RED && color.Red <= GREEN_MAX_RED) &&
+    (color.Green >= GREEN_MIN_GREEN && color.Green <= GREEN_MAX_GREEN) &&
+    (color.Blue >= GREEN_MIN_BLUE && color.Blue <= GREEN_MAX_BLUE))
+    {
+        Serial.println("Color is GREEN");
+        color_match = GREEN;
+    }
+    // color is blue
+    else if((color.Red >= BLUE_MIN_RED && color.Red <= BLUE_MAX_RED) &&
+    (color.Green >= BLUE_MIN_GREEN && color.Green <= BLUE_MAX_GREEN) &&
+    (color.Blue >= BLUE_MIN_BLUE && color.Blue <= BLUE_MAX_BLUE))
+    {
+        Serial.println("Color is BLUE");
+        color_match = BLUE;
+    }
+    // color is yellow
+    else if((color.Red >= YELLOW_MIN_RED && color.Red <= YELLOW_MAX_RED) &&
+    (color.Green >= YELLOW_MIN_GREEN && color.Green <= YELLOW_MAX_GREEN) &&
+    (color.Blue >= YELLOW_MIN_BLUE && color.Blue <= YELLOW_MAX_BLUE))
+    {
+        Serial.println("Color is YELLOW");
+        color_match = YELLOW;
+    }
+    // color is unknown
+    else
+    {
+        Serial.println("Color is UNKNOWN");
+    }
+    Serial.println();
+    return color_match;
+} 
+
+/**
+ * Function that configure the different pins.
+ */
+void pin_setup()
+{
+    pinMode(FRONT_BUMPER_PIN, INPUT);
+
+    //Vout SENSOR LIGNE
+    pinMode(LINE_PIN, INPUT);
+}
+
+/**
+ * Function to turn on a DEL.
+ * 
+ * @param[in] del_pin The pin of the DEL that we wish to turn on.
+ */
+void turn_on_del(int del_pin)
+{
+    digitalWrite(del_pin, HIGH);
+}
+
+/**
+ * Function to turn off a DEL.
+ * 
+ * @param[in] del_pin The pin of the DEL that we wish to turn off.
+ */
+void turn_off_del(int del_pin)
+{
+    digitalWrite(del_pin, LOW);
+}
+
+/**
+ * Function that makes the robot detect an object while it moves and/or follows the track.
+ * 
+ * @param[in] nb_detection The number of times the robot detected the same object. Must pass a pointer.
+ * @param[in] last_distances An array containing all the last mesured distances between the robot and the object.
+ * @param[out] object_is_detected True if the object was detected.
+ */
+bool object_detection(int *nb_detection, float last_distances[])
+{
+    delay(100);
+    float obj_distance = SONAR_GetRange(SONAR_ID);
+    float last_distances_average = get_average(last_distances, MIN_DETECTION + 1);
+
+    if (obj_distance <= MAX_DISTANCE && obj_distance != 0.0)
+    {
+        float max_distance_range = last_distances_average * (1.0 + MARGIN_ERROR_DISTANCE);
+        float min_distance_range = last_distances_average * (1.0 - MARGIN_ERROR_DISTANCE);
+
+        if ((obj_distance <= max_distance_range && obj_distance >= min_distance_range) ||
+            last_distances_average == 0.0)
+        {
+            /*
+                First condition block: checks that the max detection number is not exceeded and that the distance
+                    between the object and the robot is between a certain range of the previous distances.
+                
+                OR
+
+                Second condition block: checks that the max detection number is not exceeded and that the average
+                    of the previous distances is 0 (will happen if there is no distance in the array)
+            */
+            last_distances[*nb_detection] = obj_distance;
+            (*nb_detection)++;
+
+            Serial.println(*nb_detection);
+
+            if (*nb_detection >= MIN_DETECTION)
+            {             
+                return true;
+            }
+        }
+    }
+    else
+    {
+        *nb_detection = 0;
+
+        // "Clear" the array by replacing all of its value by 0.
+        for (int i = 0; i < MIN_DETECTION + 1; i++)
+        {
+            last_distances[i] = 0;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Get the average of an array of float.
+ * 
+ * @param[in] arr The array to get the average from
+ * @param[in] size The size of the array
+ * @param[out] average The average
+ */
+float get_average(float arr[], int size)
+{
+    float sum = 0.0;
+    // Will keep track of how many non-zero values there are in the array
+    int non_zero_values = 0;
+
+    for (int i = 0; i < size; i++)
+    {
+        float val = arr[i];
+
+        if (val != 0)
+        {
+            non_zero_values++;
+            sum += val;
+        }
+    }
+
+    // If there is 0 non-zero values, that means that the array is filled with 0. To dodge a
+    // divided by 0 exception, we simply return 0.
+    if (non_zero_values == 0)
+    {
+        return 0;
+    }
+
+    // We want to divide by the numder of non-zero values to get a more meaningful average.
+    return sum / non_zero_values;
+}
+
+/**
+ * Function that must be called at the end of each action to stop the motors and reset the encoders.
+ */ 
+void stop_action()
+{
+    stop_motors();
+    reset_encoders(); 
+    _delay_us(10);
+}
+
+/**
+ * Function that only stops the motors.
+ */ 
+void stop_motors()
+{
     MOTOR_SetSpeed(LEFT, 0); 
     MOTOR_SetSpeed(RIGHT, 0); 
-    nbPulseLeft = ENCODER_ReadReset(LEFT);
-    nbPulseRight = ENCODER_ReadReset(RIGHT);
-    _delay_us(10);
+}
+
+/**
+ * Function that resets both encoders.
+ */ 
+void reset_encoders()
+{
+    ENCODER_Reset(LEFT);
+    ENCODER_Reset(RIGHT);
+}
+
+/**
+ * Function that makes the robot turn until the central sensor meets the track's line.
+ * 
+ * @param[in] direction The direction in which the robot must turn. 0 for left and 1 for right.
+ */ 
+void turn_to_central_sensor(int direction)
+{
+    bool turn_right = direction == RIGHT;
+
+    MOTOR_SetSpeed(LEFT, turn_right ? LINE_CORRECTION_SPEED : COUNTER_LINE_CORRECTION); 
+    MOTOR_SetSpeed(RIGHT, turn_right ? COUNTER_LINE_CORRECTION : LINE_CORRECTION_SPEED);
+
+    int detect_value = 0;
+
+    while(detect_value > 148 + 3 || detect_value < 148 - 3)
+    {
+        delay(1);
+        detect_value = analogRead(A7);
+    }
+
+    MOTOR_SetSpeed(LEFT, LINE_DETECTION_SPEED); 
+    MOTOR_SetSpeed(RIGHT, LINE_DETECTION_SPEED);
+}
+
+/** 
+ * Function makes the robot follow the white line.
+ * 
+ * @param[in] distance The distance for which the robot must follow the line. 
+ *      If distance is equal to 0 the robot will follow the line indefinetly.
+ */ 
+void detect_line(float distance)
+{
+    reset_encoders();
+
+    MOTOR_SetSpeed(LEFT, LINE_DETECTION_SPEED); 
+    MOTOR_SetSpeed(RIGHT, LINE_DETECTION_SPEED);
+
+    float nb_wheel_turn = distance / WHEEL_SIZE_CM;
+    long nb_pulses = nb_wheel_turn * PULSES_BY_TURN;
+
+    while (true)
+    {
+        delay(10);
+
+        // If the robot must follow the line only for a specific distance.
+        if (distance != 0.0 && ENCODER_Read(LEFT) >= nb_pulses)
+        {
+            break;
+        }
+
+        int detect_value = analogRead(A7);
+
+        // === Corrections ===
+
+        if (detect_value == 733 || detect_value == 441 || detect_value == 1021)
+        {
+            continue;
+        }
+
+        if(detect_value < 291 + 3 && detect_value > 291 - 3) //detection par SENSOR_DROITE
+        {
+            turn_to_central_sensor(RIGHT);
+        }
+        else if(detect_value < 583 + 3 && detect_value > 583 - 3) //detection par SENSOR_GAUCHE 
+        {
+            turn_to_central_sensor(LEFT);
+        }
+    }
+
+    stop_action();
 }
