@@ -35,8 +35,8 @@ void turn_on_del(int del_pin);
 void turn_off_del(int del_pin);
 void turn_off_del_all();
 void initColorSensor();
-CustomColor readColorOnce();
-int findColor(CustomColor);
+CustomColor read_color();
+int find_color(CustomColor);
 void hit_object(float obj_distance);
 bool object_detection(int *nb_detection, float last_distances[]);
 void stop_action();
@@ -78,27 +78,19 @@ void setup()
 
 void loop() {
     bool sw = 0;
-    while(sw == 0)
+
+    while(1)
     {
-        sw = digitalRead(28);
-        delay(1);
+        while(sw == 0)
+        {
+            sw = digitalRead(28);
+            delay(1);
+        }
+        sw = 0;
+
+        logic_gear();
     }
-
-    detect_line(0.0, false, true, false);
-    detect_line(0.0, true, false, false);
-
-    delay(500);
-
-    int color = findColor(readColorOnce());
-
-    turn_on_del_depending_color(color);
-    bring_ball(color);
-
-    SERVO_Disable(SERVO_MOTOR_ID);
-
-    detect_line(0.0, false, false, false);
     
-    turn_off_del_all();
 }
 
 /**
@@ -253,10 +245,10 @@ void turn_on_del_depending_color(int color)
     {
         turn_on_del(YELLOW_DEL_PIN);
     }
-    else if (color == BLUE)
+    /*else if (color == BLUE)
     {
         turn_on_del(BLUE_DEL_PIN);
-    }
+    }*/
 }
 
 /**
@@ -302,7 +294,7 @@ void initColorSensor()
 This function returns a CustomColor objet with the Red, Green and Blue relative
 values of what is under the sensor.
 */
-CustomColor readColorOnce()
+CustomColor read_color()
 {
     CustomColor color = CustomColor(0,0,0);
 
@@ -340,7 +332,7 @@ This function takes in a color object and compairs the RGB values to presets
 for each possible colors. An int with a value relative to the color that fit the
 RGB values is returned.
 */
-int findColor(CustomColor color)
+int find_color(CustomColor color)
 {
     int color_match = INVALID;
     
@@ -360,13 +352,13 @@ int findColor(CustomColor color)
         Serial.println("Color is GREEN");
         color_match = GREEN;
     }
-    // color is blue
-    else if((color.Red >= BLUE_MIN_RED && color.Red <= BLUE_MAX_RED) &&
-    (color.Green >= BLUE_MIN_GREEN && color.Green <= BLUE_MAX_GREEN) &&
-    (color.Blue >= BLUE_MIN_BLUE && color.Blue <= BLUE_MAX_BLUE))
+    // color is purple
+    else if((color.Red >= PURPLE_MIN_RED && color.Red <= PURPLE_MAX_RED) &&
+    (color.Green >= PURPLE_MIN_GREEN && color.Green <= PURPLE_MAX_GREEN) &&
+    (color.Blue >= PURPLE_MIN_BLUE && color.Blue <= PURPLE_MAX_BLUE))
     {
-        Serial.println("Color is BLUE");
-        color_match = BLUE;
+        Serial.println("Color is PURPLE");
+        color_match = PURPLE;
     }
     // color is yellow
     else if((color.Red >= YELLOW_MIN_RED && color.Red <= YELLOW_MAX_RED) &&
@@ -375,6 +367,14 @@ int findColor(CustomColor color)
     {
         Serial.println("Color is YELLOW");
         color_match = YELLOW;
+    }
+    // color is orange
+    else if((color.Red >= ORANGE_MIN_RED && color.Red <= ORANGE_MAX_RED) &&
+    (color.Green >= ORANGE_MIN_GREEN && color.Green <= ORANGE_MAX_GREEN) &&
+    (color.Blue >= ORANGE_MIN_BLUE && color.Blue <= ORANGE_MAX_BLUE))
+    {
+        Serial.println("Color is ORANGE");
+        color_match = ORANGE;
     }
     // color is unknown
     else
@@ -677,7 +677,7 @@ void bring_ball(int color)
 
     move_arm(80);
 
-    if (color == BLUE)
+    /*if (color == BLUE)
     {
         turn(-90);
         forward(BALL_TO_TURNING_POINT);
@@ -692,7 +692,7 @@ void bring_ball(int color)
     else if (color == RED)
     {
         turn(3);
-    }
+    }*/
 
     float distance_forward = color == RED ? BALL_TO_ZONE + WHEEL_SIZE_CM : BALL_TO_ZONE;
 
@@ -711,7 +711,7 @@ void bring_ball(int color)
 
     turn(180);
     forward(BALL_TO_ZONE);
-
+/*
     if (color == BLUE)
     {
         turn(-90);
@@ -729,7 +729,7 @@ void bring_ball(int color)
         turn(-45);
         forward(WHEEL_SIZE_CM);
         turn(45);
-    }
+    }*/
 
     forward(COLOR_TO_BALL + TRACK_TO_COLOR - CORRECTION_FOR_BACKWARDS);
     turn(-40);
@@ -747,4 +747,72 @@ void move_arm(int angle)
     delay(100);
     SERVO_SetAngle(SERVO_MOTOR_ID, angle);
     delay(500);
+}
+
+
+/*
+    Function that contains the logic arround the gear. It checks the color of a
+    skittle and gets it to where it needs to be. If no skittle is detected a few
+    times, the function ends.
+*/
+void logic_gear()
+{
+    int attempts = 0;
+    int color = INVALID;
+
+    while(attempts < NB_ATTEMPTS)
+    {
+        turn_gear();
+        color = get_color();
+
+        if(color == INVALID)
+        {
+            attempts++;
+        }
+        else
+        {
+            go_to_color(color);
+        }
+    }
+}
+
+void turn_gear()
+{
+    delay(1000);
+}
+
+void go_to_color(int color)
+{
+
+}
+
+/*
+    This function returns an int value associated to the color detected by the sensor. 
+    The color is read a number of times equal to NB_SCANS_COLOR set in the alex.h file.
+    If the same color is detected more than half of the readings. The returned value will
+    be a color. Else it will be INVALID (of value 0).
+*/
+int get_color()
+{
+    int color[NB_SCANS_COLOR]={INVALID};    // an array to add the detected colors to
+    int color_count[NB_COLOR+1] = {0};      // an array to add up the number of times a color was detected
+
+    // loop to detect the colors and count how many of each was detected
+    for(int i = 0; i < NB_SCANS_COLOR; i++)
+    {
+        color[i]=find_color(read_color());
+        color_count[color[i]]++;
+    }
+    
+    // returns a color if detected more than half the times
+    for(int i = 0; i<=NB_COLOR; i++)
+    {
+        if(color_count[i]>NB_SCANS_COLOR/2)
+        {
+            return i;
+        }
+    }
+
+    // if no main color, return invalid
+    return INVALID;
 }
