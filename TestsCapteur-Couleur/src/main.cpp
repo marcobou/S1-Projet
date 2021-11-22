@@ -29,8 +29,8 @@ class CustomColor
 };
 
 // prototypes de fonctions
-CustomColor readColorOnce();
-int findColor(CustomColor);
+CustomColor read_color();
+int find_color(CustomColor);
 void printRGBValues(CustomColor color);
 
 // setup
@@ -67,11 +67,11 @@ void loop()
 
     while(1)
     {
-        currentColor = readColorOnce();
+        currentColor = read_color();
 
         printRGBValues(currentColor);
         
-        findColor(currentColor);
+        find_color(currentColor);
 
         countNotDead++;
         Serial.println(countNotDead);
@@ -81,13 +81,11 @@ void loop()
     }
 }
 
-/*
-Cette fonction fait la lecture du capteur de couleur et retourne un objet avec
-les 3 composantes de couleur
-*/
-CustomColor readColorOnce()
+CustomColor read_color()
 {
     CustomColor color = CustomColor(0,0,0);
+
+    // variables used in the calculations and readings
     uint32_t sum;
     uint16_t clear;
     float r, g, b;
@@ -96,17 +94,19 @@ CustomColor readColorOnce()
 
     delay(70);  // takes 50ms to read
 
-    tcs.getRawData(&color.Red, &color.Green, &color.Blue, &clear);
+    tcs.getRawData(&color.Red, &color.Green, &color.Blue, &clear); // get data from sensor
 
     tcs.setInterrupt(true);  // turn off LED
 
     sum = clear;
 
-    r = color.Red; r /= sum;
+    // put values as relatives for easier comparing
+    r = color.Red; r /= sum; 
     g = color.Green; g /= sum;
     b = color.Blue; b /= sum;
     r *= 256; g *= 256; b *= 256;
 
+    // put values in int format
     color.Red = (int)r;
     color.Green = (int)g;
     color.Blue = (int)b;
@@ -115,20 +115,21 @@ CustomColor readColorOnce()
 }
 
 /*
-Cette fonction prend en entrée un objet de couleur et le compare à des valeurs
-pré-déterminées pour savoir si l'objet de couleur est l'une des couleurs recherchées.
-La fonction retourne la couleur trouvée selon un index défini
+This function takes in a color object and compairs the RGB values to presets
+for each possible colors. An int with a value relative to the color that fit the
+RGB values is returned.
 */
-int findColor(CustomColor color)
+int find_color(CustomColor color)
 {
-    int colorMatch = UNKNOWN;
+    int color_match = INVALID;
+    
     // color is red
     if((color.Red >= RED_MIN_RED && color.Red <= RED_MAX_RED) &&
     (color.Green >= RED_MIN_GREEN && color.Green <= RED_MAX_GREEN) &&
     (color.Blue >= RED_MIN_BLUE && color.Blue <= RED_MAX_BLUE))
     {
         Serial.println("Color is RED");
-        colorMatch = RED;
+        color_match = RED;
     }
     // color is green
     else if((color.Red >= GREEN_MIN_RED && color.Red <= GREEN_MAX_RED) &&
@@ -136,15 +137,15 @@ int findColor(CustomColor color)
     (color.Blue >= GREEN_MIN_BLUE && color.Blue <= GREEN_MAX_BLUE))
     {
         Serial.println("Color is GREEN");
-        colorMatch = GREEN;
+        color_match = GREEN;
     }
-    // color is blue
-    else if((color.Red >= BLUE_MIN_RED && color.Red <= BLUE_MAX_RED) &&
-    (color.Green >= BLUE_MIN_GREEN && color.Green <= BLUE_MAX_GREEN) &&
-    (color.Blue >= BLUE_MIN_BLUE && color.Blue <= BLUE_MAX_BLUE))
+    // color is purple
+    else if((color.Red >= PURPLE_MIN_RED && color.Red <= PURPLE_MAX_RED) &&
+    (color.Green >= PURPLE_MIN_GREEN && color.Green <= PURPLE_MAX_GREEN) &&
+    (color.Blue >= PURPLE_MIN_BLUE && color.Blue <= PURPLE_MAX_BLUE))
     {
-        Serial.println("Color is BLUE");
-        colorMatch = BLUE;
+        Serial.println("Color is PURPLE");
+        color_match = PURPLE;
     }
     // color is yellow
     else if((color.Red >= YELLOW_MIN_RED && color.Red <= YELLOW_MAX_RED) &&
@@ -152,7 +153,15 @@ int findColor(CustomColor color)
     (color.Blue >= YELLOW_MIN_BLUE && color.Blue <= YELLOW_MAX_BLUE))
     {
         Serial.println("Color is YELLOW");
-        colorMatch = YELLOW;
+        color_match = YELLOW;
+    }
+    // color is orange
+    else if((color.Red >= ORANGE_MIN_RED && color.Red <= ORANGE_MAX_RED) &&
+    (color.Green >= ORANGE_MIN_GREEN && color.Green <= ORANGE_MAX_GREEN) &&
+    (color.Blue >= ORANGE_MIN_BLUE && color.Blue <= ORANGE_MAX_BLUE))
+    {
+        Serial.println("Color is ORANGE");
+        color_match = ORANGE;
     }
     // color is unknown
     else
@@ -160,7 +169,7 @@ int findColor(CustomColor color)
         Serial.println("Color is UNKNOWN");
     }
     Serial.println();
-    return colorMatch;
+    return color_match;
 }   
 
 /*
