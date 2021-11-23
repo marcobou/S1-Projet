@@ -3,8 +3,9 @@
 #define INVALID 0
 #define RED     1
 #define GREEN   2
-#define BLUE    3
+#define PURPLE  3
 #define YELLOW  4
+#define ORANGE  5
 
 // composantes acceptables pour considérer une couleur comme rouge
 #define RED_MAX_RED   85
@@ -78,3 +79,6 @@
 #define D5 BASE+5
 #define D6 BASE+6
 #define D7 BASE+7
+
+// === LCD ===
+#define LCD_MENU_BTN_PIN 38

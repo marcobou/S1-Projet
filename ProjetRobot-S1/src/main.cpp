@@ -4,7 +4,6 @@
 #include "Adafruit_TCS34725.h"
 #include "alex.h"
 #include <LibRobus.h>
-#include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 
 class CustomColor
@@ -45,56 +44,47 @@ void reset_encoders();
 void detect_line(float distance);
 float get_average(float arr[], int size);
 void turn_to_central_sensor(int direction);
-void test_lcd();
+void reset_cpt_skittles();
+void show_menu(char title[], int cpt);
+void switch_menu();
+void on_click_btn_lcd();
+void update_skittles_cpt(int color);
+void lcd_init();
+
+int menu_index;
+int cpt_skittles_green;
+int cpt_skittles_red;
+int cpt_skittles_yellow;
+int cpt_skittles_orange;
+int cpt_skittles_purple;
+LiquidCrystal_I2C lcd = LiquidCrystal_I2C(0x27, 16, 2);
+int skittles_colors[5] = {ORANGE, GREEN, RED, YELLOW, PURPLE};
 
 void setup()
 { 
     Serial.begin(9600); 
 
-    /*BoardInit(); 
+    BoardInit(); 
 
     stop_motors();
     reset_encoders();
 
     pin_setup();
 
-    init_color_sensor();*/
+    reset_cpt_skittles();
 
-    /*int rs = 12, en = 11, d4 = 5, d5 = 4, d6 = 3, d7 = 2;
-    LiquidCrystal lcd = LiquidCrystal(rs, en, d4, d5, d6, d7);
+    lcd_init();
 
-    // set up the LCD's number of columns and rows:
-    lcd.begin(16, 2);
-    lcd.setCursor(0, 0);
-    // Print a message to the LCD.
-    lcd.print("hello");
-    lcd.setCursor(0, 1);
-    lcd.print("world");*/
-    int buttonPin = 26;
+    //init_color_sensor();
 
-    pinMode(buttonPin, INPUT_PULLUP);
-    
     while(true)
     {
-        if(digitalRead(buttonPin) == LOW)
+        if(digitalRead(LCD_MENU_BTN_PIN) == LOW)
         {
-            Serial.println("Btn appuyé");
+            on_click_btn_lcd();
             delay(2000);
         }
     }
-
-    LiquidCrystal_I2C lcd = LiquidCrystal_I2C(0x27, 16, 2);
-
-    lcd.init();                      // initialize the lcd 
-    lcd.backlight();
-
-    lcd.setCursor(0, 0);
-    lcd.print("Hello");
-    lcd.setCursor(0, 1);
-    lcd.print("World");
-
-    delay(5000);
-    lcd.clear();
 
     Serial.println("Start");
 } 
@@ -107,11 +97,6 @@ void loop()
         sw = digitalRead(FRONT_BUMPER_PIN);
         delay(1);
     }*/
-}
-
-void test_lcd()
-{
-
 }
 
 /**
@@ -288,7 +273,7 @@ RGB values is returned.
 */
 int find_color(CustomColor color)
 {
-    int color_match = INVALID;
+    /*int color_match = INVALID;
     
     // color is red
     if((color.Red >= RED_MIN_RED && color.Red <= RED_MAX_RED) &&
@@ -328,7 +313,7 @@ int find_color(CustomColor color)
         Serial.println("Color is UNKNOWN");
     }
     Serial.println();
-    return color_match;
+    return color_match;*/
 } 
 
 /**
@@ -340,6 +325,8 @@ void pin_setup()
 
     //Vout SENSOR LIGNE
     pinMode(LINE_PIN, INPUT);
+
+    pinMode(LCD_MENU_BTN_PIN, INPUT_PULLUP);
 }
 
 /**
@@ -550,4 +537,111 @@ void detect_line(float distance)
     }
 
     stop_action();
+}
+
+void reset_cpt_skittles()
+{
+    cpt_skittles_orange = 0;
+    cpt_skittles_green = 0;
+    cpt_skittles_red = 0;
+    cpt_skittles_yellow = 0;
+    cpt_skittles_purple = 0;
+    menu_index = 0;
+}
+
+void show_menu(char title[], int cpt)
+{
+    lcd.setCursor(0,0);
+    lcd.print(title);
+    lcd.setCursor(0,1);
+    lcd.print(cpt);
+}
+
+void switch_menu()
+{
+    lcd.clear();
+
+    switch(menu_index)
+    {
+        case 0:
+            show_menu("Skittles orange", cpt_skittles_orange);
+            break;
+        case 1:
+            show_menu("Skittles vert", cpt_skittles_green);
+            break;
+        case 2:
+            show_menu("Skittles rouge", cpt_skittles_red);
+            break;
+        case 3:
+            show_menu("Skittles jaune", cpt_skittles_yellow);
+            break;
+        case 4:
+            show_menu("Skittles mauve", cpt_skittles_purple);
+            break;
+        default:
+            Serial.println("Erreur dans le switch de menu");
+    }
+}
+
+void on_click_btn_lcd()
+{
+    
+    if(menu_index == 4)
+    {
+        menu_index = 0;
+    }
+    else
+    {
+        menu_index++;
+    }
+
+    switch_menu();
+}
+
+void update_menu(int nb, int color)
+{
+    if (skittles_colors[menu_index] == color)
+    {
+        lcd.setCursor(0, 1);
+        lcd.print(" ");
+        lcd.print(nb);
+    }
+}
+
+void update_skittles_cpt(int color)
+{
+    // TODO change case for color defines
+    switch (color)
+    {
+        case ORANGE:
+            cpt_skittles_orange++;
+            update_menu(cpt_skittles_orange, color);
+            break;
+        case GREEN:
+            cpt_skittles_green++;
+            update_menu(cpt_skittles_green, color);
+            break;
+        case RED:
+            cpt_skittles_red++;
+            update_menu(cpt_skittles_red, color);
+            break;
+        case YELLOW:
+            cpt_skittles_yellow++;
+            update_menu(cpt_skittles_yellow, color);
+            break;
+        case PURPLE:
+            cpt_skittles_purple++;
+            update_menu(cpt_skittles_purple, color);
+            break;
+        default:
+            Serial.println("Erreur dans l'update des compteurs de skittles");
+    }
+}
+
+void lcd_init()
+{
+    lcd.init();
+    lcd.backlight();
+
+    switch_menu();
 }
