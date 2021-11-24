@@ -62,6 +62,7 @@ int skittles_colors[5] = {ORANGE, GREEN, RED, YELLOW, PURPLE};
 
 void setup()
 { 
+    Wire.begin();
     Serial.begin(9600); 
 
     BoardInit(); 
@@ -82,7 +83,7 @@ void setup()
         if(digitalRead(LCD_MENU_BTN_PIN) == LOW)
         {
             on_click_btn_lcd();
-            delay(2000);
+            delay(1000);
         }
     }
 
