@@ -539,6 +539,9 @@ void detect_line(float distance)
     stop_action();
 }
 
+/**
+ * Reset the counters for the number of skittles and the menu index.
+ */
 void reset_cpt_skittles()
 {
     cpt_skittles_orange = 0;
@@ -549,6 +552,9 @@ void reset_cpt_skittles()
     menu_index = 0;
 }
 
+/**
+ * Show a menu (title on first line and number on second) on the LCD.
+ */
 void show_menu(char title[], int cpt)
 {
     lcd.setCursor(0,0);
@@ -557,6 +563,9 @@ void show_menu(char title[], int cpt)
     lcd.print(cpt);
 }
 
+/**
+ * Switch the shown menu to the next one.
+ */ 
 void switch_menu()
 {
     lcd.clear();
@@ -583,9 +592,11 @@ void switch_menu()
     }
 }
 
+/**
+ * Function that is called when the button for changing the LCD menu is pressed.
+ */ 
 void on_click_btn_lcd()
 {
-    
     if(menu_index == 4)
     {
         menu_index = 0;
@@ -598,6 +609,13 @@ void on_click_btn_lcd()
     switch_menu();
 }
 
+/**
+ * Simply update the shown menu. Will be called if the sorted skittle is of the 
+ * same color as the one presented on the LCD.
+ * 
+ * @param[in] nb The number of skittles to show on the second line of the LCD.
+ * @param[in] color The color of the detected skittle.
+ */ 
 void update_menu(int nb, int color)
 {
     if (skittles_colors[menu_index] == color)
@@ -608,6 +626,11 @@ void update_menu(int nb, int color)
     }
 }
 
+/**
+ * Update the appropriate skittles counter depending on the color of the detected skittle.
+ * 
+ * @param[in] color The color of the detected skittle.
+ */ 
 void update_skittles_cpt(int color)
 {
     // TODO change case for color defines
@@ -638,6 +661,9 @@ void update_skittles_cpt(int color)
     }
 }
 
+/**
+ * Initialize the LCD screen and show the first menu.
+ */ 
 void lcd_init()
 {
     lcd.init();
