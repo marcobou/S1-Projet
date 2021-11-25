@@ -85,3 +85,4 @@
 
 // === IR SENSOR ===
 #define IR_SENSOR_PIN A3
+#define JAR_DISTANCE 15

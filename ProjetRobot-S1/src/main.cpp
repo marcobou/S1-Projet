@@ -51,6 +51,7 @@ void switch_menu();
 void on_click_btn_lcd();
 void update_skittles_cpt(int color);
 void lcd_init();
+void jar_detection();
 
 int menu_index;
 int cpt_skittles_green;
@@ -60,6 +61,14 @@ int cpt_skittles_orange;
 int cpt_skittles_purple;
 LiquidCrystal_I2C lcd = LiquidCrystal_I2C(0x27, 16, 2);
 int skittles_colors[5] = {ORANGE, GREEN, RED, YELLOW, PURPLE};
+SharpIR IR_sensor = SharpIR(1, IR_SENSOR_PIN);
+
+int current_skittle_color = INVALID;
+int jar_color[5] = {0, 0, 0, 0, 0};
+int jar_index = 0;
+int nb_jar_line_end = 0;
+bool new_jar = true;
+bool is_jar_index_increasing = true;
 
 void setup()
 { 
@@ -79,22 +88,7 @@ void setup()
 
     //init_color_sensor();
 
-    SharpIR IR_sensor = SharpIR(1, IR_SENSOR_PIN);
-
-    while(true)
-    {
-        Serial.println(IR_sensor.getDistance());
-        delay(1000);
-    }
-
-    while(true)
-    {
-        if(digitalRead(LCD_MENU_BTN_PIN) == LOW)
-        {
-            on_click_btn_lcd();
-            delay(1000);
-        }
-    }
+    detect_line(0.0);
 
     Serial.println("Start");
 } 
@@ -531,10 +525,10 @@ void detect_line(float distance)
 
         // === Corrections ===
 
-        if (detect_value == 733 || detect_value == 441 || detect_value == 1021)
+        /*if (detect_value == 733 || detect_value == 441 || detect_value == 1021)
         {
             continue;
-        }
+        }*/
 
         if(detect_value < 291 + 3 && detect_value > 291 - 3) //detection par SENSOR_DROITE
         {
@@ -544,6 +538,10 @@ void detect_line(float distance)
         {
             turn_to_central_sensor(LEFT);
         }
+
+        // --- Jar detection ---
+
+        jar_detection();
     }
 
     stop_action();
@@ -680,4 +678,79 @@ void lcd_init()
     lcd.backlight();
 
     switch_menu();
+}
+
+/**
+ * Function that must be called in a loop, it will detect the jar and index them with the appropriate color.
+ */
+void jar_detection()
+{
+    int obj_distance = IR_sensor.getDistance();
+
+    if (obj_distance <= JAR_DISTANCE + 5 && obj_distance >= JAR_DISTANCE - 5)
+    {
+        // jar is detected
+
+        if (new_jar)
+        {
+            // if the robot is in front of a new jar (not detecting the same jar)
+            new_jar = false;
+
+            if ((jar_index == 5 || jar_index == 1) && nb_jar_line_end < 2)
+            {
+                // first or fifth jar is detected for the second or third time (after the turns)
+                nb_jar_line_end++;
+            }
+            else if (jar_index == 5 && nb_jar_line_end == 2)
+            {
+                // is in front of the fourth jar after passing the fifth one
+                nb_jar_line_end = 0;
+                is_jar_index_increasing = !is_jar_index_increasing;
+            }
+            else if (jar_index == 1 && nb_jar_line_end == 2)
+            {
+                // is in front of the second jar after passing the first one once a whole turn is finished
+                nb_jar_line_end = 0;
+                is_jar_index_increasing = !is_jar_index_increasing;
+            }
+            
+            if (nb_jar_line_end == 0)
+            {
+                // if is not at an end of the jar line 
+
+                if (is_jar_index_increasing)
+                {
+                    jar_index++;
+                }
+                else
+                {
+                    jar_index--;
+                }
+
+                if (jar_color[jar_index - 1] == 0)
+                {
+                    // if never passed in front of this jar
+
+                    jar_color[jar_index - 1] = skittles_colors[jar_index - 1];
+                }
+            }
+        }
+
+        if (current_skittle_color == jar_color[jar_index - 1])
+        {
+            // If the color of the skittle inside of the gear correspond to the jar
+            // the robot is currently in fron of.
+
+            //TODO, dummy instructions while waiting for the gear. Shouldn't even enter here.
+            stop_motors();
+            delay(1000);
+            MOTOR_SetSpeed(LEFT, LINE_DETECTION_SPEED); 
+            MOTOR_SetSpeed(RIGHT, LINE_DETECTION_SPEED);
+        }
+    }
+    else
+    {
+        // If no jar was detected that means the robot is between 2 jars and he'll encounter a new one.
+        new_jar = true;
+    }
 }
