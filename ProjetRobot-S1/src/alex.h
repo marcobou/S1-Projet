@@ -84,4 +84,4 @@
 #define LCD_MENU_BTN_PIN 38
 
 // === IR SENSOR ===
-#define IR_SENSOR_PIN A0
+#define IR_SENSOR_PIN A3

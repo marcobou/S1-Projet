@@ -79,6 +79,14 @@ void setup()
 
     //init_color_sensor();
 
+    SharpIR IR_sensor = SharpIR(1, IR_SENSOR_PIN);
+
+    while(true)
+    {
+        Serial.println(IR_sensor.getDistance());
+        delay(1000);
+    }
+
     while(true)
     {
         if(digitalRead(LCD_MENU_BTN_PIN) == LOW)
