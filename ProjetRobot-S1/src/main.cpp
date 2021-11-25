@@ -5,6 +5,7 @@
 #include "alex.h"
 #include <LibRobus.h>
 #include <LiquidCrystal_I2C.h>
+#include <SharpIR.h>
 
 class CustomColor
 {
