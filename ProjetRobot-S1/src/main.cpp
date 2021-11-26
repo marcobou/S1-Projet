@@ -52,6 +52,7 @@ void on_click_btn_lcd();
 void update_skittles_cpt(int color);
 void lcd_init();
 void jar_detection();
+void set_jar_detection_variables();
 
 int menu_index;
 int cpt_skittles_green;
@@ -63,12 +64,14 @@ LiquidCrystal_I2C lcd = LiquidCrystal_I2C(0x27, 16, 2);
 int skittles_colors[5] = {ORANGE, GREEN, RED, YELLOW, PURPLE};
 SharpIR IR_sensor = SharpIR(1, IR_SENSOR_PIN);
 
-int current_skittle_color = INVALID;
+int current_skittle_color;
 int jar_color[5] = {0, 0, 0, 0, 0};
-int jar_index = 0;
-int nb_jar_line_end = 0;
-bool new_jar = true;
-bool is_jar_index_increasing = true;
+int jar_index;
+int nb_jar_line_end;
+bool is_jar_index_increasing;
+int nb_no_detection;
+int last_distance;
+int previous_last_distance;
 
 void setup()
 { 
@@ -86,21 +89,23 @@ void setup()
 
     lcd_init();
 
-    //init_color_sensor();
+    set_jar_detection_variables();
 
-    detect_line(0.0);
+    //init_color_sensor();
 
     Serial.println("Start");
 } 
 
 void loop() 
 {
-    /*bool sw = 0;
+    bool sw = 0;
     while(sw == 0)
     {
         sw = digitalRead(FRONT_BUMPER_PIN);
         delay(1);
-    }*/
+    }
+
+    detect_line(0.0);
 }
 
 /**
@@ -542,6 +547,7 @@ void detect_line(float distance)
         // --- Jar detection ---
 
         jar_detection();
+
     }
 
     stop_action();
@@ -687,16 +693,19 @@ void jar_detection()
 {
     int obj_distance = IR_sensor.getDistance();
 
-    if (obj_distance <= JAR_DISTANCE + 5 && obj_distance >= JAR_DISTANCE - 5)
+    if (obj_distance >= previous_last_distance - 1 && obj_distance <= previous_last_distance + 1 && 
+        obj_distance >= last_distance - 1 && obj_distance <= last_distance + 1 && 
+        obj_distance >= JAR_DISTANCE - 5 && obj_distance <= JAR_DISTANCE + 5)
     {
-        // jar is detected
+        // detected distance is basically the same as the previous 2 values (so 3 same values in a row) 
+        // and it is in the expected range
 
-        if (new_jar)
+        if (nb_no_detection > 15)
         {
             // if the robot is in front of a new jar (not detecting the same jar)
-            new_jar = false;
+            nb_no_detection = 0;
 
-            if ((jar_index == 5 || jar_index == 1) && nb_jar_line_end < 2)
+            if ((jar_index == 5 || (jar_index == 1 && !is_jar_index_increasing)) && nb_jar_line_end < 2)
             {
                 // first or fifth jar is detected for the second or third time (after the turns)
                 nb_jar_line_end++;
@@ -705,15 +714,18 @@ void jar_detection()
             {
                 // is in front of the fourth jar after passing the fifth one
                 nb_jar_line_end = 0;
-                is_jar_index_increasing = !is_jar_index_increasing;
+                is_jar_index_increasing = false;
             }
             else if (jar_index == 1 && nb_jar_line_end == 2)
             {
                 // is in front of the second jar after passing the first one once a whole turn is finished
                 nb_jar_line_end = 0;
-                is_jar_index_increasing = !is_jar_index_increasing;
+                is_jar_index_increasing = true;
             }
             
+            Serial.print("Number end line : ");
+            Serial.println(nb_jar_line_end);
+
             if (nb_jar_line_end == 0)
             {
                 // if is not at an end of the jar line 
@@ -727,6 +739,9 @@ void jar_detection()
                     jar_index--;
                 }
 
+                Serial.print("Jar index : ");
+                Serial.println(jar_index);
+
                 if (jar_color[jar_index - 1] == 0)
                 {
                     // if never passed in front of this jar
@@ -734,23 +749,47 @@ void jar_detection()
                     jar_color[jar_index - 1] = skittles_colors[jar_index - 1];
                 }
             }
-        }
 
-        if (current_skittle_color == jar_color[jar_index - 1])
-        {
-            // If the color of the skittle inside of the gear correspond to the jar
-            // the robot is currently in fron of.
-
-            //TODO, dummy instructions while waiting for the gear. Shouldn't even enter here.
             stop_motors();
-            delay(1000);
+            delay(2000);
             MOTOR_SetSpeed(LEFT, LINE_DETECTION_SPEED); 
             MOTOR_SetSpeed(RIGHT, LINE_DETECTION_SPEED);
+        }
+
+        if (jar_index != 0 && current_skittle_color == jar_color[jar_index - 1])
+        {
+            // If the color of the skittle inside of the gear correspond to the jar
+            // the robot is currently in front of.
+
+            //TODO, dummy instructions while waiting for the gear. Shouldn't even enter here.
+            
+            Serial.println("DUMMY");
         }
     }
     else
     {
         // If no jar was detected that means the robot is between 2 jars and he'll encounter a new one.
-        new_jar = true;
+        nb_no_detection++;
+
+        Serial.println("NO_DETECTION");
+    }
+
+    previous_last_distance = last_distance;
+    last_distance = obj_distance;
+}
+
+void set_jar_detection_variables()
+{
+    current_skittle_color = INVALID;
+    jar_index = 0;
+    nb_jar_line_end = 0;
+    is_jar_index_increasing = true;
+    nb_no_detection = 0;
+    last_distance = 0;
+    previous_last_distance = 0;
+
+    for (int i = 0; i < 5; i++)
+    {
+        jar_color[i] = 0;
     }
 }
