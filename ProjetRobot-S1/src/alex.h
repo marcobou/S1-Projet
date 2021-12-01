@@ -86,3 +86,6 @@
 // === IR SENSOR ===
 #define IR_SENSOR_PIN A3
 #define JAR_DISTANCE 17
+
+// === BUZZER ===
+#define BUZZER_PIN_NO 48
