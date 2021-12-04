@@ -47,4 +47,18 @@ namespace defines
 #define ORANGE_MIN_GREEN  57
 #define ORANGE_MAX_BLUE   70
 #define ORANGE_MIN_BLUE   40
+
+// Number of steps per internal motor revolution 
+#define STEPS_PER_REV   32
+ 
+//  Amount of Gear Reduction
+#define GEAR_RED        64
+ 
+// Number of steps per geared output rotation
+#define STEPS_PER_OUT_REV (STEPS_PER_REV * GEAR_RED)
+
+#define NB_TESTS    3
+
+#define NB_SCANS_COLOR      5
+#define NB_COLOR            5
 }

@@ -4,6 +4,7 @@
 #include "Adafruit_TCS34725.h"
 #include "alex.h"
 #include <LibRobus.h>
+#include <Stepper.h>
 
 class CustomColor
 {
@@ -25,6 +26,7 @@ class CustomColor
 };
 
 Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);
+Stepper steppermotor(STEPS_PER_REV, STEPPER_PIN1, STEPPER_PIN2, STEPPER_PIN3, STEPPER_PIN4);
 
 const float WHEEL_SIZE_CM = WHEEL_SIZE_ROBOTA * 3.141592;
 
@@ -48,6 +50,9 @@ void bring_ball(int color_no);
 void move_arm(int angle);
 void turn_on_del_depending_color(int color);
 void turn_to_central_sensor(int direction);
+void logic_gear();
+void turn_gear(int turn_degrees);
+int get_color();
 
 void setup() 
 {
@@ -760,9 +765,9 @@ void logic_gear()
     int attempts = 0;
     int color = INVALID;
 
-    while(attempts < NB_ATTEMPTS)
+    while(attempts < NB_TESTS)
     {
-        turn_gear();
+        turn_gear(90);
         color = get_color();
 
         if(color == INVALID)
@@ -771,20 +776,19 @@ void logic_gear()
         }
         else
         {
-            go_to_color(color);
+            //case where the color is ok
         }
     }
 }
 
-void turn_gear()
+void turn_gear(int turn_degrees)
 {
-    delay(1000);
+    int steps_to_do = STEPS_PER_OUT_REV * turn_degrees / 360;
+    steppermotor.setSpeed(1023);    
+    steppermotor.step(-steps_to_do);
 }
 
-void go_to_color(int color)
-{
 
-}
 
 /*
     This function returns an int value associated to the color detected by the sensor. 

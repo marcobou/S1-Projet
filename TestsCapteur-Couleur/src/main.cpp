@@ -2,11 +2,13 @@
 #include <Wire.h>
 #include "Adafruit_TCS34725.h" 
 #include "defines.h"
+#include <Stepper.h>
 
 using namespace defines;
 
 // objet utilisé pour lire les valeurs du capteur de couleur
 Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);
+Stepper steppermotor(STEPS_PER_REV, 4, 6, 5, 7);
 
 // Classe qui permet de créer un objet de couleur avec ses 3 composantes (R, G, B)
 class CustomColor
@@ -32,16 +34,18 @@ class CustomColor
 CustomColor read_color();
 int find_color(CustomColor);
 void printRGBValues(CustomColor color);
+int get_color();
+void turnGear(int turn_degrees);
 
 // setup
 void setup() 
 {
     Serial.begin(9600);
-    Serial.println("Color test begins :");
+    //Serial.println("Color test begins :");
 
     // alimente le capteur de couleur sur la pin D13
-    pinMode(13, OUTPUT);
-    digitalWrite(13, 1);
+    //pinMode(13, OUTPUT);
+    //digitalWrite(13, 1);
 
     // essai de créer une connexion avec le capteur jusqu'a réussite
     while (!tcs.begin())
@@ -59,6 +63,7 @@ void setup()
 // main
 void loop() 
 {
+
     // objet de couleur
     CustomColor currentColor = CustomColor(0,0,0);
 
@@ -67,6 +72,7 @@ void loop()
 
     while(1)
     {
+        // test only color sensor
         currentColor = read_color();
 
         printRGBValues(currentColor);
@@ -78,6 +84,33 @@ void loop()
         Serial.println();
 
         delay(1000);
+
+        /*int skittlesLeft = NB_TESTS;
+        int color = INVALID;
+
+        while(skittlesLeft != 0)
+        {
+
+            //turnGear(90);
+            //STEPS_PER_OUT_REV * turn_degrees / 360;
+            steppermotor.setSpeed(1023);    
+            steppermotor.step(STEPS_PER_OUT_REV /4);
+            delay(1000);
+            //color = find_color(read_color());
+            currentColor=read_color();
+            printRGBValues(currentColor);
+            find_color(currentColor);
+            if(color == INVALID)
+            {
+                //skittlesLeft--;
+            }
+            else
+            {
+                
+                skittlesLeft = NB_TESTS;
+            }
+        }
+        while(1);*/
     }
 }
 
@@ -183,4 +216,36 @@ void printRGBValues(CustomColor color)
     Serial.print("Green : "); Serial.println(color.Green);
     Serial.print("Blue : ");  Serial.println(color.Blue);
     Serial.println();
+}
+
+void turnGear(int turn_degrees)
+{
+    int steps_to_do = STEPS_PER_OUT_REV * turn_degrees / 360;
+    steppermotor.setSpeed(1023);    
+    steppermotor.step(-steps_to_do);
+}
+
+int get_color()
+{
+    int color[NB_SCANS_COLOR]={INVALID};    // an array to add the detected colors to
+    int color_count[NB_COLOR+1] = {0};      // an array to add up the number of times a color was detected
+
+    // loop to detect the colors and count how many of each was detected
+    for(int i = 0; i < NB_SCANS_COLOR; i++)
+    {
+        color[i]=find_color(read_color());
+        color_count[color[i]]++;
+    }
+    
+    // returns a color if detected more than half the times
+    for(int i = 0; i<=NB_COLOR; i++)
+    {
+        if(color_count[i]>NB_SCANS_COLOR/2)
+        {
+            return i;
+        }
+    }
+
+    // if no main color, return invalid
+    return INVALID;
 }

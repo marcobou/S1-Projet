@@ -68,8 +68,6 @@
 
 // Pin for sensors
 #define COLOR_SENSOR_PIN    13
-#define NB_SCANS_COLOR      10
-#define NB_COLOR            5
 
 // pins for the whistle
 #define WHISTLE_PIN A0
@@ -103,5 +101,21 @@
 #define BALL_TO_TURNING_POINT 25
 #define CORRECTION_FOR_BACKWARDS 40
 
-// Engrenage
-#define NB_ATTEMPTS 3
+// Number of steps per internal motor revolution 
+#define STEPS_PER_REV   32
+ 
+//  Amount of Gear Reduction
+#define GEAR_RED        64
+ 
+// Number of steps per geared output rotation
+#define STEPS_PER_OUT_REV (STEPS_PER_REV * GEAR_RED)
+
+#define NB_TESTS    3
+
+#define NB_SCANS_COLOR      5
+#define NB_COLOR            5
+
+#define STEPPER_PIN1    8
+#define STEPPER_PIN2    10
+#define STEPPER_PIN3    9
+#define STEPPER_PIN4    11
