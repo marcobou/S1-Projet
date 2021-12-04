@@ -45,7 +45,7 @@ bool object_detection(int *nb_detection, float last_distances[]);
 void stop_action();
 void stop_motors();
 void reset_encoders();
-void detect_line(float distance);
+void detect_line();
 float get_average(float arr[], int size);
 void turn_to_central_sensor(int direction);
 void logic_gear();
@@ -58,7 +58,7 @@ void switch_menu();
 void on_click_btn_lcd();
 void update_skittles_cpt(int color);
 void lcd_init();
-void jar_detection();
+bool jar_detection();
 void set_jar_detection_variables();
 void play_buzzer();
 
@@ -101,7 +101,7 @@ void setup()
 
     set_jar_detection_variables();
 
-    //init_color_sensor();
+    init_color_sensor();
 
     Serial.println("Start");
 } 
@@ -125,7 +125,11 @@ void loop()
     /*turn_gear(90);
     color = read_color_once();
     printRGBValues(color);*/
-    logic_gear(); 
+    //logic_gear();
+
+    detect_line();
+    stop_motors();
+    play_buzzer();
 }
 
 /**
@@ -304,7 +308,7 @@ int find_color(CustomColor color)
     (color.Green >= RED_MIN_GREEN && color.Green <= RED_MAX_GREEN) &&
     (color.Blue >= RED_MIN_BLUE && color.Blue <= RED_MAX_BLUE))
     {
-        Serial.println("Color is RED");
+        //Serial.println("Color is RED");
         color_match = RED;
     }
     // color is green
@@ -312,7 +316,7 @@ int find_color(CustomColor color)
     (color.Green >= GREEN_MIN_GREEN && color.Green <= GREEN_MAX_GREEN) &&
     (color.Blue >= GREEN_MIN_BLUE && color.Blue <= GREEN_MAX_BLUE))
     {
-        Serial.println("Color is GREEN");
+        //Serial.println("Color is GREEN");
         color_match = GREEN;
     }
     // color is purple
@@ -320,7 +324,7 @@ int find_color(CustomColor color)
     (color.Green >= PURPLE_MIN_GREEN && color.Green <= PURPLE_MAX_GREEN) &&
     (color.Blue >= PURPLE_MIN_BLUE && color.Blue <= PURPLE_MAX_BLUE))
     {
-        Serial.println("Color is PURPLE");
+        //Serial.println("Color is PURPLE");
         color_match = PURPLE;
     }
     // color is yellow
@@ -328,7 +332,7 @@ int find_color(CustomColor color)
     (color.Green >= YELLOW_MIN_GREEN && color.Green <= YELLOW_MAX_GREEN) &&
     (color.Blue >= YELLOW_MIN_BLUE && color.Blue <= YELLOW_MAX_BLUE))
     {
-        Serial.println("Color is YELLOW");
+        //Serial.println("Color is YELLOW");
         color_match = YELLOW;
     }
     // color is orange
@@ -336,13 +340,13 @@ int find_color(CustomColor color)
     (color.Green >= ORANGE_MIN_GREEN && color.Green <= ORANGE_MAX_GREEN) &&
     (color.Blue >= ORANGE_MIN_BLUE && color.Blue <= ORANGE_MAX_BLUE))
     {
-        Serial.println("Color is ORANGE");
+        //Serial.println("Color is ORANGE");
         color_match = ORANGE;
     }
     // color is unknown
     else
     {
-        Serial.println("Color is UNKNOWN");
+        //Serial.println("Color is UNKNOWN");
     }
     Serial.println();
     return color_match;
@@ -356,7 +360,6 @@ void pin_setup()
     pinMode(FRONT_BUMPER_PIN, INPUT);
 
     //Vout SENSOR LIGNE
-    pinMode(LINE_PIN, INPUT);
 
     pinMode(LCD_MENU_BTN_PIN, INPUT_PULLUP);
 
@@ -527,38 +530,55 @@ void turn_to_central_sensor(int direction)
 
 /** 
  * Function makes the robot follow the white line.
- * 
- * @param[in] distance The distance for which the robot must follow the line. 
- *      If distance is equal to 0 the robot will follow the line indefinetly.
  */ 
-void detect_line(float distance)
+void detect_line()
 {
     reset_encoders();
 
     MOTOR_SetSpeed(LEFT, LINE_DETECTION_SPEED); 
     MOTOR_SetSpeed(RIGHT, LINE_DETECTION_SPEED);
 
-    float nb_wheel_turn = distance / WHEEL_SIZE_CM;
-    long nb_pulses = nb_wheel_turn * PULSES_BY_TURN;
+    long nb_pulses = 0;
+
+    int attempts = 0;
+    int color = INVALID;
+
+    bool do_turn_gear = true;
+    bool do_get_color = true;
+    int turn_gear_delay = 0;
+    int get_color_delay = 0;
+    bool ramp_to_be_aligned = false;
 
     while (true)
     {
         delay(10);
 
         // If the robot must follow the line only for a specific distance.
-        if (distance != 0.0 && ENCODER_Read(LEFT) >= nb_pulses)
+        if (nb_pulses != 0 && ENCODER_Read(LEFT) >= nb_pulses)
         {
-            break;
+            Serial.println("DEPOT");
+            stop_motors();
+            turn_gear(90);
+
+            delay(5000);
+
+            do_turn_gear = true;
+            do_get_color = true;
+            turn_gear_delay = 0;
+            get_color_delay = 0;
+            ramp_to_be_aligned = false;
+            current_skittle_color = INVALID;
+            color = INVALID;
+            nb_pulses = 0;
+            attempts = 0;
+
+            MOTOR_SetSpeed(LEFT, LINE_DETECTION_SPEED);
+            MOTOR_SetSpeed(RIGHT, LINE_DETECTION_SPEED);
         }
 
         int detect_value = analogRead(A7);
 
         // === Corrections ===
-
-        /*if (detect_value == 733 || detect_value == 441 || detect_value == 1021)
-        {
-            continue;
-        }*/
 
         if(detect_value < 291 + 3 && detect_value > 291 - 3) //detection par SENSOR_DROITE
         {
@@ -569,10 +589,76 @@ void detect_line(float distance)
             turn_to_central_sensor(LEFT);
         }
 
+        if (attempts < NB_TESTS)
+        {
+            if (do_turn_gear)
+            {
+                do_turn_gear = false;
+                turn_gear(90);
+            }
+            else
+            {
+                if (turn_gear_delay < 50)
+                {
+                    turn_gear_delay++;
+                }
+                else
+                {
+                    if (do_get_color)
+                    {
+                        color = get_color();
+                        do_get_color = false;
+                    }
+                    else
+                    {
+                        if (get_color_delay < 50)
+                        {
+                            get_color_delay++;
+                        }
+                        else
+                        {
+                            if (color == INVALID)
+                            {
+                                attempts++;
+                                do_turn_gear = true;
+                                do_get_color = true;
+                                turn_gear_delay = 0;
+                                get_color_delay = 0;
+                            }
+                            else
+                            {
+                                if (current_skittle_color == INVALID)
+                                {
+                                    //case where the color is ok
+                                    current_skittle_color = color;
+
+                                    Serial.print("COLOR: ");
+                                    Serial.println(current_skittle_color);
+                                }
+                                
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        else
+        {
+            break;
+        }
+        
         // --- Jar detection ---
 
-        jar_detection();
+        bool jar_is_detected = jar_detection();
 
+        if (jar_is_detected && !ramp_to_be_aligned)
+        {
+            ramp_to_be_aligned = true;
+
+            float nb_wheel_turn = DISTANCE_IR_TO_RAMP / WHEEL_SIZE_CM;
+            nb_pulses = nb_wheel_turn * PULSES_BY_TURN;
+            reset_encoders();
+        }
     }
 
     stop_action();
@@ -790,8 +876,10 @@ void lcd_init()
 
 /**
  * Function that must be called in a loop, it will detect the jar and index them with the appropriate color.
+ * 
+ * @param[out] is_color_jar True if the robot is in front of the jar associated to the current Skittles color.
  */
-void jar_detection()
+bool jar_detection()
 {
     int obj_distance = IR_sensor.getDistance();
 
@@ -801,6 +889,8 @@ void jar_detection()
     {
         // detected distance is basically the same as the previous 2 values (so 3 same values in a row) 
         // and it is in the expected range
+        
+        //Serial.println("DETECTION");
 
         if (nb_no_detection > 15)
         {
@@ -824,9 +914,6 @@ void jar_detection()
                 nb_jar_line_end = 0;
                 is_jar_index_increasing = true;
             }
-            
-            //Serial.print("Number end line : ");
-            //Serial.println(nb_jar_line_end);
 
             if (nb_jar_line_end == 0)
             {
@@ -841,8 +928,8 @@ void jar_detection()
                     jar_index--;
                 }
 
-                //Serial.print("Jar index : ");
-                //Serial.println(jar_index);
+                Serial.print("Jar index : ");
+                Serial.println(jar_index);
 
                 if (jar_color[jar_index - 1] == 0)
                 {
@@ -850,22 +937,18 @@ void jar_detection()
 
                     jar_color[jar_index - 1] = skittles_colors[jar_index - 1];
                 }
-            }
 
-            stop_motors();
-            delay(2000);
-            MOTOR_SetSpeed(LEFT, LINE_DETECTION_SPEED); 
-            MOTOR_SetSpeed(RIGHT, LINE_DETECTION_SPEED);
+                Serial.print("Jar color : ");
+                Serial.println(jar_color[jar_index - 1]);
+            }
         }
 
         if (jar_index != 0 && current_skittle_color == jar_color[jar_index - 1])
         {
             // If the color of the skittle inside of the gear correspond to the jar
             // the robot is currently in front of.
-
-            //TODO, dummy instructions while waiting for the gear. Shouldn't even enter here.
             
-            Serial.println("DUMMY");
+            return true;
         }
     }
     else
@@ -878,6 +961,8 @@ void jar_detection()
 
     previous_last_distance = last_distance;
     last_distance = obj_distance;
+
+    return false;
 }
 
 void set_jar_detection_variables()
