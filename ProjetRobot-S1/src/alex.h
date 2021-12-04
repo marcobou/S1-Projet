@@ -66,8 +66,8 @@
 
 // === LINE DETECTION ===
 #define LINE_PIN A7
-#define LINE_DETECTION_SPEED 0.4
-#define LINE_CORRECTION_SPEED 0.4
+#define LINE_DETECTION_SPEED 0.3
+#define LINE_CORRECTION_SPEED 0.3
 #define COUNTER_LINE_CORRECTION 0.1
 
 // === OBJECT DETECTION ===
@@ -99,3 +99,13 @@
 #define STEPPER_PIN2    10
 #define STEPPER_PIN3    9
 #define STEPPER_PIN4    11
+
+// === LCD ===
+#define LCD_MENU_BTN_PIN 38
+
+// === IR SENSOR ===
+#define IR_SENSOR_PIN A3
+#define JAR_DISTANCE 17
+
+// === BUZZER ===
+#define BUZZER_PIN_NO 48

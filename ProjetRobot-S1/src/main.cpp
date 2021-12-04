@@ -5,6 +5,8 @@
 #include "alex.h"
 #include <LibRobus.h>
 #include <Stepper.h>
+#include <LiquidCrystal_I2C.h>
+#include <SharpIR.h>
 
 class CustomColor
 {
@@ -50,12 +52,42 @@ void logic_gear();
 void turn_gear(int turn_degrees);
 int get_color();
 void printRGBValues(CustomColor color);
+void reset_cpt_skittles();
+void show_menu(char title[], int cpt);
+void switch_menu();
+void on_click_btn_lcd();
+void update_skittles_cpt(int color);
+void lcd_init();
+void jar_detection();
+void set_jar_detection_variables();
+void play_buzzer();
+
+int menu_index;
+int cpt_skittles_green;
+int cpt_skittles_red;
+int cpt_skittles_yellow;
+int cpt_skittles_orange;
+int cpt_skittles_purple;
+LiquidCrystal_I2C lcd = LiquidCrystal_I2C(0x27, 16, 2);
+int skittles_colors[5] = {ORANGE, GREEN, RED, YELLOW, PURPLE};
+SharpIR IR_sensor = SharpIR(1, IR_SENSOR_PIN);
+
+int current_skittle_color;
+int jar_color[5] = {0, 0, 0, 0, 0};
+int jar_index;
+int nb_jar_line_end;
+bool is_jar_index_increasing;
+int nb_no_detection;
+int last_distance;
+int previous_last_distance;
 
 void setup()
 { 
+    Wire.begin();
     Serial.begin(9600); 
 
     BoardInit(); 
+    AudioInit();
 
     stop_motors();
     reset_encoders();
@@ -63,11 +95,15 @@ void setup()
     pin_setup();
     pinMode(27,INPUT);
 
-    init_color_sensor();
+    reset_cpt_skittles();
 
-    delay(500);
+    lcd_init();
 
-    Serial.println("Start"); 
+    set_jar_detection_variables();
+
+    //init_color_sensor();
+
+    Serial.println("Start");
 } 
 
 void loop() 
@@ -97,7 +133,8 @@ void loop()
  * 
  * @param[in] angle The angle at which the robot must turn. A negative value will make it turn to the left.
  */
-void turn (float angle){
+void turn (float angle)
+{
     long nb_pulses = 0;
 
     reset_encoders();
@@ -320,6 +357,10 @@ void pin_setup()
 
     //Vout SENSOR LIGNE
     pinMode(LINE_PIN, INPUT);
+
+    pinMode(LCD_MENU_BTN_PIN, INPUT_PULLUP);
+
+    pinMode(BUZZER_PIN_NO, OUTPUT);
 }
 
 /**
@@ -514,10 +555,10 @@ void detect_line(float distance)
 
         // === Corrections ===
 
-        if (detect_value == 733 || detect_value == 441 || detect_value == 1021)
+        /*if (detect_value == 733 || detect_value == 441 || detect_value == 1021)
         {
             continue;
-        }
+        }*/
 
         if(detect_value < 291 + 3 && detect_value > 291 - 3) //detection par SENSOR_DROITE
         {
@@ -527,6 +568,11 @@ void detect_line(float distance)
         {
             turn_to_central_sensor(LEFT);
         }
+
+        // --- Jar detection ---
+
+        jar_detection();
+
     }
 
     stop_action();
@@ -608,4 +654,251 @@ void printRGBValues(CustomColor color)
     Serial.print("Green : "); Serial.println(color.Green);
     Serial.print("Blue : ");  Serial.println(color.Blue);
     Serial.println();
+}
+
+/**
+ * Reset the counters for the number of skittles and the menu index.
+ */
+void reset_cpt_skittles()
+{
+    cpt_skittles_orange = 0;
+    cpt_skittles_green = 0;
+    cpt_skittles_red = 0;
+    cpt_skittles_yellow = 0;
+    cpt_skittles_purple = 0;
+    menu_index = 0;
+}
+
+/**
+ * Show a menu (title on first line and number on second) on the LCD.
+ */
+void show_menu(char title[], int cpt)
+{
+    lcd.setCursor(0,0);
+    lcd.print(title);
+    lcd.setCursor(0,1);
+    lcd.print(cpt);
+}
+
+/**
+ * Switch the shown menu to the next one.
+ */ 
+void switch_menu()
+{
+    lcd.clear();
+
+    switch(menu_index)
+    {
+        case 0:
+            show_menu("Skittles orange", cpt_skittles_orange);
+            break;
+        case 1:
+            show_menu("Skittles vert", cpt_skittles_green);
+            break;
+        case 2:
+            show_menu("Skittles rouge", cpt_skittles_red);
+            break;
+        case 3:
+            show_menu("Skittles jaune", cpt_skittles_yellow);
+            break;
+        case 4:
+            show_menu("Skittles mauve", cpt_skittles_purple);
+            break;
+        default:
+            Serial.println("Erreur dans le switch de menu");
+    }
+}
+
+/**
+ * Function that is called when the button for changing the LCD menu is pressed.
+ */ 
+void on_click_btn_lcd()
+{
+    if(menu_index == 4)
+    {
+        menu_index = 0;
+    }
+    else
+    {
+        menu_index++;
+    }
+
+    switch_menu();
+}
+
+/**
+ * Simply update the shown menu. Will be called if the sorted skittle is of the 
+ * same color as the one presented on the LCD.
+ * 
+ * @param[in] nb The number of skittles to show on the second line of the LCD.
+ * @param[in] color The color of the detected skittle.
+ */ 
+void update_menu(int nb, int color)
+{
+    if (skittles_colors[menu_index] == color)
+    {
+        lcd.setCursor(0, 1);
+        lcd.print(" ");
+        lcd.print(nb);
+    }
+}
+
+/**
+ * Update the appropriate skittles counter depending on the color of the detected skittle.
+ * 
+ * @param[in] color The color of the detected skittle.
+ */ 
+void update_skittles_cpt(int color)
+{
+    switch (color)
+    {
+        case ORANGE:
+            cpt_skittles_orange++;
+            update_menu(cpt_skittles_orange, color);
+            break;
+        case GREEN:
+            cpt_skittles_green++;
+            update_menu(cpt_skittles_green, color);
+            break;
+        case RED:
+            cpt_skittles_red++;
+            update_menu(cpt_skittles_red, color);
+            break;
+        case YELLOW:
+            cpt_skittles_yellow++;
+            update_menu(cpt_skittles_yellow, color);
+            break;
+        case PURPLE:
+            cpt_skittles_purple++;
+            update_menu(cpt_skittles_purple, color);
+            break;
+        default:
+            Serial.println("Erreur dans l'update des compteurs de skittles");
+    }
+}
+
+/**
+ * Initialize the LCD screen and show the first menu.
+ */ 
+void lcd_init()
+{
+    lcd.init();
+    lcd.backlight();
+
+    switch_menu();
+}
+
+/**
+ * Function that must be called in a loop, it will detect the jar and index them with the appropriate color.
+ */
+void jar_detection()
+{
+    int obj_distance = IR_sensor.getDistance();
+
+    if (obj_distance >= previous_last_distance - 1 && obj_distance <= previous_last_distance + 1 && 
+        obj_distance >= last_distance - 1 && obj_distance <= last_distance + 1 && 
+        obj_distance >= JAR_DISTANCE - 5 && obj_distance <= JAR_DISTANCE + 5)
+    {
+        // detected distance is basically the same as the previous 2 values (so 3 same values in a row) 
+        // and it is in the expected range
+
+        if (nb_no_detection > 15)
+        {
+            // if the robot is in front of a new jar (not detecting the same jar)
+            nb_no_detection = 0;
+
+            if ((jar_index == 5 || (jar_index == 1 && !is_jar_index_increasing)) && nb_jar_line_end < 2)
+            {
+                // first or fifth jar is detected for the second or third time (after the turns)
+                nb_jar_line_end++;
+            }
+            else if (jar_index == 5 && nb_jar_line_end == 2)
+            {
+                // is in front of the fourth jar after passing the fifth one
+                nb_jar_line_end = 0;
+                is_jar_index_increasing = false;
+            }
+            else if (jar_index == 1 && nb_jar_line_end == 2)
+            {
+                // is in front of the second jar after passing the first one once a whole turn is finished
+                nb_jar_line_end = 0;
+                is_jar_index_increasing = true;
+            }
+            
+            //Serial.print("Number end line : ");
+            //Serial.println(nb_jar_line_end);
+
+            if (nb_jar_line_end == 0)
+            {
+                // if is not at an end of the jar line 
+
+                if (is_jar_index_increasing)
+                {
+                    jar_index++;
+                }
+                else
+                {
+                    jar_index--;
+                }
+
+                //Serial.print("Jar index : ");
+                //Serial.println(jar_index);
+
+                if (jar_color[jar_index - 1] == 0)
+                {
+                    // if never passed in front of this jar
+
+                    jar_color[jar_index - 1] = skittles_colors[jar_index - 1];
+                }
+            }
+
+            stop_motors();
+            delay(2000);
+            MOTOR_SetSpeed(LEFT, LINE_DETECTION_SPEED); 
+            MOTOR_SetSpeed(RIGHT, LINE_DETECTION_SPEED);
+        }
+
+        if (jar_index != 0 && current_skittle_color == jar_color[jar_index - 1])
+        {
+            // If the color of the skittle inside of the gear correspond to the jar
+            // the robot is currently in front of.
+
+            //TODO, dummy instructions while waiting for the gear. Shouldn't even enter here.
+            
+            Serial.println("DUMMY");
+        }
+    }
+    else
+    {
+        // If no jar was detected that means the robot is between 2 jars and he'll encounter a new one.
+        nb_no_detection++;
+
+        //Serial.println("NO_DETECTION");
+    }
+
+    previous_last_distance = last_distance;
+    last_distance = obj_distance;
+}
+
+void set_jar_detection_variables()
+{
+    current_skittle_color = INVALID;
+    jar_index = 0;
+    nb_jar_line_end = 0;
+    is_jar_index_increasing = true;
+    nb_no_detection = 0;
+    last_distance = 0;
+    previous_last_distance = 0;
+
+    for (int i = 0; i < 5; i++)
+    {
+        jar_color[i] = 0;
+    }
+}
+
+void play_buzzer()
+{
+    digitalWrite(BUZZER_PIN_NO, HIGH);
+    delay(1000);
+    digitalWrite(BUZZER_PIN_NO, LOW);
 }
