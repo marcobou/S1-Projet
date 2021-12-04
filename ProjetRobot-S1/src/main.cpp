@@ -49,6 +49,7 @@ void turn_to_central_sensor(int direction);
 void logic_gear();
 void turn_gear(int turn_degrees);
 int get_color();
+void printRGBValues(CustomColor color);
 
 void setup()
 { 
@@ -60,6 +61,7 @@ void setup()
     reset_encoders();
 
     pin_setup();
+    pinMode(27,INPUT);
 
     init_color_sensor();
 
@@ -71,11 +73,23 @@ void setup()
 void loop() 
 {
     bool sw = 0;
+    CustomColor color(0,0,0);
     while(sw == 0)
     {
         sw = digitalRead(FRONT_BUMPER_PIN);
+        if(digitalRead(27))
+        {
+            turn_gear(1);
+            delay(10);
+        }
         delay(1);
     }
+    delay(10);
+    //turn_gear(1);
+    /*turn_gear(90);
+    color = read_color_once();
+    printRGBValues(color);*/
+    logic_gear(); 
 }
 
 /**
@@ -194,18 +208,13 @@ Init anything related to the color sensor
 */
 void init_color_sensor()
 {
-    pinMode(COLOR_SENSOR_PIN, OUTPUT);
-    digitalWrite(13, 1);
-
     // try to connect to the color sensor
     while (!tcs.begin())
     {
         Serial.println("No TCS34725 found ... check your connections");
-        // cut power to the sensor and turn it back on until it works
-        digitalWrite(COLOR_SENSOR_PIN, 0);
         delay(1000);
-        digitalWrite(COLOR_SENSOR_PIN, 1);
     } 
+    Serial.println("TCS34725 found");
 }
 /*
 This function returns a CustomColor objet with the Red, Green and Blue relative
@@ -535,8 +544,9 @@ void logic_gear()
     while(attempts < NB_TESTS)
     {
         turn_gear(90);
+        delay(500);
         color = get_color();
-
+        delay(500);
         if(color == INVALID)
         {
             attempts++;
@@ -550,7 +560,7 @@ void logic_gear()
 
 void turn_gear(int turn_degrees)
 {
-    steppermotor.setSpeed(1023);    
+    steppermotor.setSpeed(700);    
     steppermotor.step(STEPS_PER_OUT_REV/(360/turn_degrees));
 }
 
@@ -585,4 +595,17 @@ int get_color()
 
     // if no main color, return invalid
     return INVALID;
+}
+
+/*
+Cette fonction print sur le port série les composantes de l'objet couleur
+donné en entrée.
+ */
+void printRGBValues(CustomColor color)
+{
+    Serial.println("Current color :");
+    Serial.print("Red : "); Serial.println(color.Red);
+    Serial.print("Green : "); Serial.println(color.Green);
+    Serial.print("Blue : ");  Serial.println(color.Blue);
+    Serial.println();
 }

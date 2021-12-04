@@ -8,44 +8,44 @@
 #define ORANGE  5
 
 // composantes acceptables pour considérer une couleur comme rouge
-#define RED_MAX_RED   108
-#define RED_MIN_RED   68
-#define RED_MAX_GREEN 78
-#define RED_MIN_GREEN 64
-#define RED_MAX_BLUE  87 
-#define RED_MIN_BLUE  67
+#define RED_MAX_RED   75
+#define RED_MIN_RED   66
+#define RED_MAX_GREEN 80
+#define RED_MIN_GREEN 74
+#define RED_MAX_BLUE  89
+#define RED_MIN_BLUE  83
 
 // composantes acceptables pour considérer une couleur comme vert
-#define GREEN_MAX_RED   69
-#define GREEN_MIN_RED   58
-#define GREEN_MAX_GREEN 116
-#define GREEN_MIN_GREEN 85
-#define GREEN_MAX_BLUE  87 
-#define GREEN_MIN_BLUE  50
+#define GREEN_MAX_RED   62
+#define GREEN_MIN_RED   56
+#define GREEN_MAX_GREEN 96
+#define GREEN_MIN_GREEN 88
+#define GREEN_MAX_BLUE  85
+#define GREEN_MIN_BLUE  76
 
 // composantes acceptables pour considérer une couleur comme purple
-#define PURPLE_MAX_RED    74
-#define PURPLE_MIN_RED    58
-#define PURPLE_MAX_GREEN  83
-#define PURPLE_MIN_GREEN  75
-#define PURPLE_MAX_BLUE   93
-#define PURPLE_MIN_BLUE   81
+#define PURPLE_MAX_RED    61
+#define PURPLE_MIN_RED    57
+#define PURPLE_MAX_GREEN  82
+#define PURPLE_MIN_GREEN  80
+#define PURPLE_MAX_BLUE   91
+#define PURPLE_MIN_BLUE   89
 
 // composantes acceptables pour considérer une couleur comme jaune
-#define YELLOW_MAX_RED    106   
-#define YELLOW_MIN_RED    84
-#define YELLOW_MAX_GREEN  89
-#define YELLOW_MIN_GREEN  84
-#define YELLOW_MAX_BLUE   75
-#define YELLOW_MIN_BLUE   39
+#define YELLOW_MAX_RED    90   
+#define YELLOW_MIN_RED    78
+#define YELLOW_MAX_GREEN  88
+#define YELLOW_MIN_GREEN  82
+#define YELLOW_MAX_BLUE   71
+#define YELLOW_MIN_BLUE   59
 
 // composantes acceptables pour considérer une couleur comme orange
-#define ORANGE_MAX_RED    132
-#define ORANGE_MIN_RED    85
-#define ORANGE_MAX_GREEN  77
-#define ORANGE_MIN_GREEN  57
-#define ORANGE_MAX_BLUE   70
-#define ORANGE_MIN_BLUE   40
+#define ORANGE_MAX_RED    94
+#define ORANGE_MIN_RED    84
+#define ORANGE_MAX_GREEN  75
+#define ORANGE_MIN_GREEN  69
+#define ORANGE_MAX_BLUE   78
+#define ORANGE_MIN_BLUE   69
 
 
 // defines for movements
