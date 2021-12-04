@@ -53,6 +53,7 @@ void update_skittles_cpt(int color);
 void lcd_init();
 void jar_detection();
 void set_jar_detection_variables();
+void play_buzzer();
 
 int menu_index;
 int cpt_skittles_green;
@@ -80,6 +81,7 @@ void setup()
     Serial.begin(9600); 
 
     BoardInit(); 
+    AudioInit();
 
     stop_motors();
     reset_encoders();
@@ -120,7 +122,7 @@ void loop()
         delay(1);
     }
 
-    detect_line(0.0);
+    play_buzzer();
 }
 
 /**
@@ -351,6 +353,8 @@ void pin_setup()
     pinMode(LINE_PIN, INPUT);
 
     pinMode(LCD_MENU_BTN_PIN, INPUT_PULLUP);
+
+    pinMode(BUZZER_PIN_NO, OUTPUT);
 }
 
 /**
@@ -662,7 +666,6 @@ void update_menu(int nb, int color)
  */ 
 void update_skittles_cpt(int color)
 {
-    // TODO change case for color defines
     switch (color)
     {
         case ORANGE:
@@ -738,8 +741,8 @@ void jar_detection()
                 is_jar_index_increasing = true;
             }
             
-            Serial.print("Number end line : ");
-            Serial.println(nb_jar_line_end);
+            //Serial.print("Number end line : ");
+            //Serial.println(nb_jar_line_end);
 
             if (nb_jar_line_end == 0)
             {
@@ -754,8 +757,8 @@ void jar_detection()
                     jar_index--;
                 }
 
-                Serial.print("Jar index : ");
-                Serial.println(jar_index);
+                //Serial.print("Jar index : ");
+                //Serial.println(jar_index);
 
                 if (jar_color[jar_index - 1] == 0)
                 {
@@ -786,7 +789,7 @@ void jar_detection()
         // If no jar was detected that means the robot is between 2 jars and he'll encounter a new one.
         nb_no_detection++;
 
-        Serial.println("NO_DETECTION");
+        //Serial.println("NO_DETECTION");
     }
 
     previous_last_distance = last_distance;
@@ -807,4 +810,11 @@ void set_jar_detection_variables()
     {
         jar_color[i] = 0;
     }
+}
+
+void play_buzzer()
+{
+    digitalWrite(BUZZER_PIN_NO, HIGH);
+    delay(1000);
+    digitalWrite(BUZZER_PIN_NO, LOW);
 }
