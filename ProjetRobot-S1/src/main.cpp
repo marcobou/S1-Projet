@@ -64,7 +64,7 @@ int cpt_skittles_purple;
 LiquidCrystal_I2C lcd = LiquidCrystal_I2C(0x27, 16, 2);
 int skittles_colors[5] = {ORANGE, GREEN, RED, YELLOW, PURPLE};
 SharpIR IR_sensor = SharpIR(1, IR_SENSOR_PIN);
-boolean lcd_button_is_pressed = false;
+bool lcd_button_is_pressed = false;
 
 int current_skittle_color;
 int jar_color[5] = {0, 0, 0, 0, 0};
@@ -796,6 +796,9 @@ void jar_detection()
     last_distance = obj_distance;
 }
 
+/**
+ * Reset all of the jar detection variables.
+ */
 void set_jar_detection_variables()
 {
     current_skittle_color = INVALID;
@@ -812,6 +815,9 @@ void set_jar_detection_variables()
     }
 }
 
+/**
+ * Function to make the buzzer buzz of a second.
+ */
 void play_buzzer()
 {
     digitalWrite(BUZZER_PIN_NO, HIGH);
