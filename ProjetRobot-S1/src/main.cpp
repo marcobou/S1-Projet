@@ -63,6 +63,7 @@ int cpt_skittles_purple;
 LiquidCrystal_I2C lcd = LiquidCrystal_I2C(0x27, 16, 2);
 int skittles_colors[5] = {ORANGE, GREEN, RED, YELLOW, PURPLE};
 SharpIR IR_sensor = SharpIR(1, IR_SENSOR_PIN);
+boolean lcd_button_is_pressed = false;
 
 int current_skittle_color;
 int jar_color[5] = {0, 0, 0, 0, 0};
@@ -92,6 +93,20 @@ void setup()
     set_jar_detection_variables();
 
     //init_color_sensor();
+    
+    /*while(true)
+    {
+        if(digitalRead(LCD_MENU_BTN_PIN) == LOW && !lcd_button_is_pressed)
+        {
+            lcd_button_is_pressed = true;
+            on_click_btn_lcd();
+        }
+
+        if (digitalRead(LCD_MENU_BTN_PIN) == HIGH && lcd_button_is_pressed)
+        {
+            lcd_button_is_pressed = false;
+        }
+    }*/
 
     Serial.println("Start");
 } 
