@@ -4,6 +4,7 @@
 #include "Adafruit_TCS34725.h"
 #include "alex.h"
 #include <LibRobus.h>
+#include <Stepper.h>
 
 class CustomColor
 {
@@ -25,6 +26,8 @@ class CustomColor
 };
 
 Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);
+Stepper steppermotor(STEPS_PER_REV, STEPPER_PIN1, STEPPER_PIN2, STEPPER_PIN3, STEPPER_PIN4);
+
 
 const float WHEEL_SIZE_CM = WHEEL_SIZE_ROBOTA * 3.141592;
 
@@ -43,6 +46,9 @@ void reset_encoders();
 void detect_line(float distance);
 float get_average(float arr[], int size);
 void turn_to_central_sensor(int direction);
+void logic_gear();
+void turn_gear(int turn_degrees);
+int get_color();
 
 void setup()
 { 
@@ -78,7 +84,7 @@ void loop()
  * @param[in] angle The angle at which the robot must turn. A negative value will make it turn to the left.
  */
 void turn (float angle){
-    long nbPulses = 0;
+    long nb_pulses = 0;
 
     reset_encoders();
 
@@ -91,10 +97,10 @@ void turn (float angle){
 
         MOTOR_SetSpeed(turn_motor, BASE_TURN_SPEED);
 
-        while(convert > nbPulses)
+        while(convert > nb_pulses)
         {
             _delay_us(10);
-            nbPulses = ENCODER_Read(turn_motor);
+            nb_pulses = ENCODER_Read(turn_motor);
         }
     }
     else
@@ -104,10 +110,10 @@ void turn (float angle){
         MOTOR_SetSpeed(LEFT, BASE_TURN_SPEED);
         MOTOR_SetSpeed(RIGHT, -BASE_TURN_SPEED);
 
-        while(((convert - 100) / 2) > nbPulses)
+        while(((convert - 100) / 2) > nb_pulses)
         {
             _delay_us(10);
-            nbPulses = ENCODER_Read(LEFT);
+            nb_pulses = ENCODER_Read(LEFT);
         }
     }
 
@@ -263,13 +269,13 @@ int find_color(CustomColor color)
         Serial.println("Color is GREEN");
         color_match = GREEN;
     }
-    // color is blue
-    else if((color.Red >= BLUE_MIN_RED && color.Red <= BLUE_MAX_RED) &&
-    (color.Green >= BLUE_MIN_GREEN && color.Green <= BLUE_MAX_GREEN) &&
-    (color.Blue >= BLUE_MIN_BLUE && color.Blue <= BLUE_MAX_BLUE))
+    // color is purple
+    else if((color.Red >= PURPLE_MIN_RED && color.Red <= PURPLE_MAX_RED) &&
+    (color.Green >= PURPLE_MIN_GREEN && color.Green <= PURPLE_MAX_GREEN) &&
+    (color.Blue >= PURPLE_MIN_BLUE && color.Blue <= PURPLE_MAX_BLUE))
     {
-        Serial.println("Color is BLUE");
-        color_match = BLUE;
+        Serial.println("Color is PURPLE");
+        color_match = PURPLE;
     }
     // color is yellow
     else if((color.Red >= YELLOW_MIN_RED && color.Red <= YELLOW_MAX_RED) &&
@@ -278,6 +284,14 @@ int find_color(CustomColor color)
     {
         Serial.println("Color is YELLOW");
         color_match = YELLOW;
+    }
+    // color is orange
+    else if((color.Red >= ORANGE_MIN_RED && color.Red <= ORANGE_MAX_RED) &&
+    (color.Green >= ORANGE_MIN_GREEN && color.Green <= ORANGE_MAX_GREEN) &&
+    (color.Blue >= ORANGE_MIN_BLUE && color.Blue <= ORANGE_MAX_BLUE))
+    {
+        Serial.println("Color is ORANGE");
+        color_match = ORANGE;
     }
     // color is unknown
     else
@@ -507,4 +521,68 @@ void detect_line(float distance)
     }
 
     stop_action();
+}
+/*
+    Function that contains the logic arround the gear. It checks the color of a
+    skittle and gets it to where it needs to be. If no skittle is detected a few
+    times, the function ends.
+*/
+void logic_gear()
+{
+    int attempts = 0;
+    int color = INVALID;
+
+    while(attempts < NB_TESTS)
+    {
+        turn_gear(90);
+        color = get_color();
+
+        if(color == INVALID)
+        {
+            attempts++;
+        }
+        else
+        {
+            //case where the color is ok
+        }
+    }
+}
+
+void turn_gear(int turn_degrees)
+{
+    steppermotor.setSpeed(1023);    
+    steppermotor.step(STEPS_PER_OUT_REV/(360/turn_degrees));
+}
+
+
+
+/*
+    This function returns an int value associated to the color detected by the sensor. 
+    The color is read a number of times equal to NB_SCANS_COLOR set in the alex.h file.
+    If the same color is detected more than half of the readings. The returned value will
+    be a color. Else it will be INVALID (of value 0).
+*/
+int get_color()
+{
+    int color[NB_SCANS_COLOR]={INVALID};    // an array to add the detected colors to
+    int color_count[NB_COLOR+1] = {0};      // an array to add up the number of times a color was detected
+
+    // loop to detect the colors and count how many of each was detected
+    for(int i = 0; i < NB_SCANS_COLOR; i++)
+    {
+        color[i]=find_color(read_color_once());
+        color_count[color[i]]++;
+    }
+    
+    // returns a color if detected more than half the times
+    for(int i = 0; i<=NB_COLOR; i++)
+    {
+        if(color_count[i]>NB_SCANS_COLOR/2)
+        {
+            return i;
+        }
+    }
+
+    // if no main color, return invalid
+    return INVALID;
 }

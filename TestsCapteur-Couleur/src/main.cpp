@@ -8,7 +8,7 @@ using namespace defines;
 
 // objet utilisé pour lire les valeurs du capteur de couleur
 Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);
-Stepper steppermotor(STEPS_PER_REV, 4, 6, 5, 7);
+Stepper steppermotor(STEPS_PER_REV, 8, 10, 9, 11);
 
 // Classe qui permet de créer un objet de couleur avec ses 3 composantes (R, G, B)
 class CustomColor
@@ -48,14 +48,14 @@ void setup()
     //digitalWrite(13, 1);
 
     // essai de créer une connexion avec le capteur jusqu'a réussite
-    while (!tcs.begin())
+    /*while (!tcs.begin())
     {
         Serial.println("No TCS34725 found ... check your connections");
         // retire et redonne du courant au capteur à chaque échec de connexion
-        digitalWrite(13, 0);
+        //digitalWrite(13, 0);
         delay(1000);
-        digitalWrite(13, 1);
-    } 
+        //digitalWrite(13, 1);
+    } */
 
     Serial.println("Found sensor");
 }
@@ -72,6 +72,7 @@ void loop()
 
     while(1)
     {
+        /*
         // test only color sensor
         currentColor = read_color();
 
@@ -84,7 +85,7 @@ void loop()
         Serial.println();
 
         delay(1000);
-
+*/
         /*int skittlesLeft = NB_TESTS;
         int color = INVALID;
 
@@ -111,6 +112,8 @@ void loop()
             }
         }
         while(1);*/
+        turnGear(90);
+        delay(1000);
     }
 }
 
@@ -222,7 +225,7 @@ void turnGear(int turn_degrees)
 {
     int steps_to_do = STEPS_PER_OUT_REV * turn_degrees / 360;
     steppermotor.setSpeed(1023);    
-    steppermotor.step(-steps_to_do);
+    steppermotor.step((STEPS_PER_OUT_REV /4));
 }
 
 int get_color()
