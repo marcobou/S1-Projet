@@ -60,6 +60,7 @@ int cpt_skittles_orange;
 int cpt_skittles_purple;
 LiquidCrystal_I2C lcd = LiquidCrystal_I2C(0x27, 16, 2);
 int skittles_colors[5] = {ORANGE, GREEN, RED, YELLOW, PURPLE};
+boolean lcd_button_is_pressed = false;
 
 void setup()
 { 
@@ -81,10 +82,15 @@ void setup()
 
     while(true)
     {
-        if(digitalRead(LCD_MENU_BTN_PIN) == LOW)
+        if(digitalRead(LCD_MENU_BTN_PIN) == LOW && !lcd_button_is_pressed)
         {
+            lcd_button_is_pressed = true;
             on_click_btn_lcd();
-            delay(1000);
+        }
+
+        if (digitalRead(LCD_MENU_BTN_PIN) == HIGH && lcd_button_is_pressed)
+        {
+            lcd_button_is_pressed = false;
         }
     }
 
