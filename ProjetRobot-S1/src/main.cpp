@@ -48,7 +48,7 @@ void reset_encoders();
 void detect_line();
 float get_average(float arr[], int size);
 void turn_to_central_sensor(int direction);
-void logic_gear();
+bool logic_gear(bool initial_turn = true);
 void turn_gear(int turn_degrees);
 int get_color();
 void printRGBValues(CustomColor color);
@@ -87,7 +87,6 @@ void setup()
     Serial.begin(9600); 
 
     BoardInit(); 
-    AudioInit();
 
     stop_motors();
     reset_encoders();
@@ -108,28 +107,48 @@ void setup()
 
 void loop() 
 {
-    bool sw = 0;
-    CustomColor color(0,0,0);
-    while(sw == 0)
+    bool lcd_button_is_pressed = false;
+
+    while(true)
     {
-        sw = digitalRead(FRONT_BUMPER_PIN);
+        if(digitalRead(RESET_BTN_PIN) == LOW)
+        {
+            break;
+        }
+
         if(digitalRead(27))
         {
             turn_gear(1);
             delay(10);
         }
+
+        // === LCD btn menu ===
+        if(digitalRead(LCD_MENU_BTN_PIN) == LOW && !lcd_button_is_pressed)
+        {
+            lcd_button_is_pressed = true;
+            on_click_btn_lcd();
+        }
+
+        if (digitalRead(LCD_MENU_BTN_PIN) == HIGH && lcd_button_is_pressed)
+        {
+            lcd_button_is_pressed = false;
+        }
+
         delay(1);
     }
     delay(10);
-    //turn_gear(1);
-    /*turn_gear(90);
-    color = read_color_once();
-    printRGBValues(color);*/
-    //logic_gear();
 
-    detect_line();
-    stop_motors();
-    play_buzzer();
+    if (logic_gear())
+    {
+        detect_line();
+        stop_motors();
+        play_buzzer();
+    }
+    else
+    {
+        play_buzzer();
+    }
+    
 }
 
 /**
@@ -187,6 +206,14 @@ void forward(float distance)
         return;
     }
 
+    int go_forward = 1;
+
+    if (distance < 0)
+    {
+        go_forward = -1;
+        distance = -distance;
+    }
+
     float nb_wheel_turn = 1.0f * distance / WHEEL_SIZE_CM;
 
     reset_encoders(); 
@@ -207,8 +234,8 @@ void forward(float distance)
 
     while(pulses_left < pulse_to_do)
     {
-        pulses_left = ENCODER_Read(LEFT);
-        pulses_right = ENCODER_Read(RIGHT);
+        pulses_left = abs(ENCODER_Read(LEFT));
+        pulses_right = abs(ENCODER_Read(RIGHT));
 
         if (pulses_left * 1.0f / pulse_to_do < 0.5f)
         {
@@ -225,18 +252,9 @@ void forward(float distance)
             }
         }
 
-        if(WHEEL_SIZE_CM == WHEEL_SIZE_ROBOTA)
-        {
-            speed_ratio = (pulses_right - pulses_left) * CORRECTION_FACTOR;
-            MOTOR_SetSpeed(LEFT, current_speed + speed_ratio); 
-            MOTOR_SetSpeed(RIGHT, current_speed);
-        }
-        else
-        {
-            speed_ratio = (pulses_left - pulses_right) * CORRECTION_FACTOR;
-            MOTOR_SetSpeed(LEFT, current_speed); 
-            MOTOR_SetSpeed(RIGHT, current_speed + speed_ratio);
-        }
+        speed_ratio = (pulses_left - pulses_right) * CORRECTION_FACTOR;
+        MOTOR_SetSpeed(LEFT, current_speed * go_forward); 
+        MOTOR_SetSpeed(RIGHT, (current_speed + speed_ratio) * go_forward);
 
         _delay_us(100);
     }
@@ -538,45 +556,25 @@ void detect_line()
     MOTOR_SetSpeed(LEFT, LINE_DETECTION_SPEED); 
     MOTOR_SetSpeed(RIGHT, LINE_DETECTION_SPEED);
 
-    long nb_pulses = 0;
-
-    int attempts = 0;
-    int color = INVALID;
-
-    bool do_turn_gear = true;
-    bool do_get_color = true;
-    int turn_gear_delay = 0;
-    int get_color_delay = 0;
-    bool ramp_to_be_aligned = false;
+    bool lcd_button_is_pressed = false;
 
     while (true)
     {
         delay(10);
 
-        // If the robot must follow the line only for a specific distance.
-        if (nb_pulses != 0 && ENCODER_Read(LEFT) >= nb_pulses)
+        int detect_value = analogRead(A7);
+
+        // === LCD btn menu ===
+        if(digitalRead(LCD_MENU_BTN_PIN) == LOW && !lcd_button_is_pressed)
         {
-            Serial.println("DEPOT");
-            stop_motors();
-            turn_gear(90);
-
-            delay(5000);
-
-            do_turn_gear = true;
-            do_get_color = true;
-            turn_gear_delay = 0;
-            get_color_delay = 0;
-            ramp_to_be_aligned = false;
-            current_skittle_color = INVALID;
-            color = INVALID;
-            nb_pulses = 0;
-            attempts = 0;
-
-            MOTOR_SetSpeed(LEFT, LINE_DETECTION_SPEED);
-            MOTOR_SetSpeed(RIGHT, LINE_DETECTION_SPEED);
+            lcd_button_is_pressed = true;
+            on_click_btn_lcd();
         }
 
-        int detect_value = analogRead(A7);
+        if (digitalRead(LCD_MENU_BTN_PIN) == HIGH && lcd_button_is_pressed)
+        {
+            lcd_button_is_pressed = false;
+        }
 
         // === Corrections ===
 
@@ -588,76 +586,28 @@ void detect_line()
         {
             turn_to_central_sensor(LEFT);
         }
-
-        if (attempts < NB_TESTS)
-        {
-            if (do_turn_gear)
-            {
-                do_turn_gear = false;
-                turn_gear(90);
-            }
-            else
-            {
-                if (turn_gear_delay < 50)
-                {
-                    turn_gear_delay++;
-                }
-                else
-                {
-                    if (do_get_color)
-                    {
-                        color = get_color();
-                        do_get_color = false;
-                    }
-                    else
-                    {
-                        if (get_color_delay < 50)
-                        {
-                            get_color_delay++;
-                        }
-                        else
-                        {
-                            if (color == INVALID)
-                            {
-                                attempts++;
-                                do_turn_gear = true;
-                                do_get_color = true;
-                                turn_gear_delay = 0;
-                                get_color_delay = 0;
-                            }
-                            else
-                            {
-                                if (current_skittle_color == INVALID)
-                                {
-                                    //case where the color is ok
-                                    current_skittle_color = color;
-
-                                    Serial.print("COLOR: ");
-                                    Serial.println(current_skittle_color);
-                                }
-                                
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        else
-        {
-            break;
-        }
         
         // --- Jar detection ---
 
-        bool jar_is_detected = jar_detection();
-
-        if (jar_is_detected && !ramp_to_be_aligned)
+        if (jar_detection())
         {
-            ramp_to_be_aligned = true;
-
-            float nb_wheel_turn = DISTANCE_IR_TO_RAMP / WHEEL_SIZE_CM;
-            nb_pulses = nb_wheel_turn * PULSES_BY_TURN;
+            stop_motors();
             reset_encoders();
+            play_buzzer();
+            forward(DISTANCE_IR_TO_RAMP);
+            turn_gear(90);
+            delay(3000);
+            forward(-DISTANCE_IR_TO_RAMP);
+
+            if (!logic_gear(false))
+            {
+                break;
+            }
+
+            delay(2000);
+
+            MOTOR_SetSpeed(LEFT, LINE_DETECTION_SPEED);
+            MOTOR_SetSpeed(RIGHT, LINE_DETECTION_SPEED);
         }
     }
 
@@ -668,15 +618,23 @@ void detect_line()
     skittle and gets it to where it needs to be. If no skittle is detected a few
     times, the function ends.
 */
-void logic_gear()
+bool logic_gear(bool initial_turn = true)
 {
     int attempts = 0;
     int color = INVALID;
 
     while(attempts < NB_TESTS)
     {
-        turn_gear(90);
-        delay(500);
+        if (initial_turn)
+        {
+            turn_gear(90);
+            delay(500);
+        }
+        else
+        {
+            initial_turn = true;
+        }
+        
         color = get_color();
         delay(500);
         if(color == INVALID)
@@ -686,8 +644,14 @@ void logic_gear()
         else
         {
             //case where the color is ok
+            current_skittle_color = color;
+            update_skittles_cpt(current_skittle_color);
+
+            return true;
         }
     }
+
+    return false;
 }
 
 void turn_gear(int turn_degrees)

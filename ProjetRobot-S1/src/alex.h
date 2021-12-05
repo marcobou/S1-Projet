@@ -106,7 +106,10 @@
 // === IR SENSOR ===
 #define IR_SENSOR_PIN A3
 #define JAR_DISTANCE 17
-#define DISTANCE_IR_TO_RAMP 25
+#define DISTANCE_IR_TO_RAMP 22
 
 // === BUZZER ===
 #define BUZZER_PIN_NO 48
+
+// === Reset ===
+#define RESET_BTN_PIN 39
