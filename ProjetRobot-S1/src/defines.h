@@ -108,7 +108,7 @@
 
 #define IR_SENSOR_PIN A3
 #define JAR_DISTANCE 17
-#define DISTANCE_IR_TO_RAMP 22
+#define DISTANCE_IR_TO_RAMP 26
 
 // ===== BUZZER =====
 
